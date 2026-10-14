@@ -48,14 +48,13 @@ export default function RootLayout({
               aria-hidden="true"
             >
               <rect width="64" height="64" rx="14" fill="#080808" />
-              <path
-                d="M14 26V14h12M38 14h12v12M50 38v12H38M26 50H14V38"
-                fill="none"
-                stroke="#F5F5F5"
-                strokeWidth="5"
-                strokeLinecap="square"
-              />
-              <circle cx="32" cy="32" r="8" fill="#E50914" />
+              <rect x="10" y="13" width="18" height="10" rx="2" fill="#3a3a3a" />
+              <rect x="32" y="13" width="22" height="10" rx="2" fill="#3a3a3a" />
+              <rect x="10" y="27" width="28" height="10" rx="2" fill="#E50914" />
+              <rect x="42" y="27" width="12" height="10" rx="2" fill="#3a3a3a" />
+              <rect x="10" y="41" width="14" height="10" rx="2" fill="#3a3a3a" />
+              <rect x="28" y="41" width="26" height="10" rx="2" fill="#3a3a3a" />
+              <rect x="34" y="7" width="3" height="50" rx="1.5" fill="#F5F5F5" />
             </svg>
             <span>SBX_Studio</span>
           </Link>
@@ -91,14 +90,13 @@ export default function RootLayout({
                 aria-hidden="true"
               >
                 <rect width="64" height="64" rx="14" fill="#080808" />
-                <path
-                  d="M14 26V14h12M38 14h12v12M50 38v12H38M26 50H14V38"
-                  fill="none"
-                  stroke="#F5F5F5"
-                  strokeWidth="5"
-                  strokeLinecap="square"
-                />
-                <circle cx="32" cy="32" r="8" fill="#E50914" />
+                <rect x="10" y="13" width="18" height="10" rx="2" fill="#3a3a3a" />
+                <rect x="32" y="13" width="22" height="10" rx="2" fill="#3a3a3a" />
+                <rect x="10" y="27" width="28" height="10" rx="2" fill="#E50914" />
+                <rect x="42" y="27" width="12" height="10" rx="2" fill="#3a3a3a" />
+                <rect x="10" y="41" width="14" height="10" rx="2" fill="#3a3a3a" />
+                <rect x="28" y="41" width="26" height="10" rx="2" fill="#3a3a3a" />
+                <rect x="34" y="7" width="3" height="50" rx="1.5" fill="#F5F5F5" />
               </svg>
               <span>SBX_Studio</span>
             </p>

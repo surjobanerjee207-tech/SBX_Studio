@@ -40,23 +40,9 @@ export default function RootLayout({
       <body className="font-sans">
         <div className="grain" aria-hidden />
         <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-6 py-4 backdrop-blur bg-ink/70">
-          <Link href="/" className="font-semibold flex items-center gap-2.5 group">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 64 64"
-              className="w-6 h-6 shrink-0 transition-transform group-hover:scale-105"
-              aria-hidden="true"
-            >
-              <rect width="64" height="64" rx="14" fill="#080808" />
-              <rect x="10" y="13" width="18" height="10" rx="2" fill="#3a3a3a" />
-              <rect x="32" y="13" width="22" height="10" rx="2" fill="#3a3a3a" />
-              <rect x="10" y="27" width="28" height="10" rx="2" fill="#E50914" />
-              <rect x="42" y="27" width="12" height="10" rx="2" fill="#3a3a3a" />
-              <rect x="10" y="41" width="14" height="10" rx="2" fill="#3a3a3a" />
-              <rect x="28" y="41" width="26" height="10" rx="2" fill="#3a3a3a" />
-              <rect x="34" y="7" width="3" height="50" rx="1.5" fill="#F5F5F5" />
-            </svg>
-            <span>SBX_Studio</span>
+          <Link href="/" className="flex items-center gap-3 font-semibold whitespace-nowrap">
+            <img src="/icon.svg" alt="" width={28} height={28} className="h-7 w-7" />
+            SBX_Studio
           </Link>
           <nav aria-label="Main" className="flex items-center gap-5 text-sm text-mute">
             <Link href="/" className="hover:text-bone hidden sm:block">

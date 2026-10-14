@@ -23,8 +23,6 @@ export const metadata: Metadata = {
     "Explore cinematic video editing, promotional films, and creative storytelling by SBX_Studio.",
   icons: {
     icon: "/icon.svg",
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
   },
   openGraph: {
     title: "SBX_Studio",

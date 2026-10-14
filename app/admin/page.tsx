@@ -315,86 +315,72 @@ export default function AdminPage() {
       ) : (
         <div className="mt-4 space-y-4">
           {projects.map((p, idx) => (
-            <div
+            <article
               key={p.slug}
-              className="bg-panel border border-white/10 p-4 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:border-white/20 transition-colors"
+              className="flex flex-col sm:flex-row gap-4 border border-white/10 p-4 bg-panel hover:border-white/20 transition-colors"
             >
-              {/* Thumbnail + info */}
-              <div className="flex items-start sm:items-center gap-4 flex-1 min-w-0">
-                <div className="w-36 aspect-video bg-black flex-shrink-0 relative overflow-hidden border border-white/10">
-                  <img
-                    src={p.thumbnail}
-                    alt={p.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-1 right-1 text-[10px] bg-black/80 px-1 py-0.5 uppercase tracking-wider font-mono text-white/80">
-                    {p.provider === "googledrive" ? "DRIVE" : p.provider.toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs uppercase tracking-wider text-mute">
-                      {p.category} · {p.year}
-                    </span>
+              <img
+                src={p.thumbnail}
+                alt={p.title}
+                className="w-full sm:w-60 aspect-video object-cover shrink-0 bg-black border border-white/10"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-mute break-words">
+                  {p.category} · {p.year}
+                </p>
+                <h3 className="font-display text-2xl break-words text-bone mt-0.5">
+                  {p.title}
+                </h3>
+                <p className="text-mute break-words mt-1">
+                  {p.description || "No description provided."}
+                </p>
+                <p className="font-mono text-xs text-mute break-all mt-1">
+                  Video: {p.provider} ({p.videoUrl || "none"})
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <div className="flex items-center border border-white/10">
+                    <button
+                      onClick={() => moveProject(idx, "up")}
+                      disabled={idx === 0}
+                      title="Move higher on homepage"
+                      className="px-2.5 py-1 text-xs text-mute hover:text-bone disabled:opacity-30 disabled:hover:text-mute hover:bg-white/5"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => moveProject(idx, "down")}
+                      disabled={idx === projects.length - 1}
+                      title="Move lower on homepage"
+                      className="px-2.5 py-1 text-xs text-mute hover:text-bone disabled:opacity-30 disabled:hover:text-mute hover:bg-white/5 border-l border-white/10"
+                    >
+                      ↓
+                    </button>
                   </div>
-                  <h3 className="text-lg font-semibold text-bone truncate mt-0.5">
-                    {p.title}
-                  </h3>
-                  <p className="text-xs text-mute truncate mt-1 max-w-lg">
-                    {p.description || "No description provided."}
-                  </p>
-                  <p className="text-[11px] text-mute/80 mt-1 font-mono truncate">
-                    Video: {p.videoUrl ? (p.provider === "youtube" ? `YouTube (${p.videoUrl})` : p.provider === "googledrive" ? `Google Drive (${p.videoUrl})` : p.videoUrl) : "None (placeholder)"}
-                  </p>
-                </div>
-              </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-2 self-end md:self-center flex-shrink-0">
-                {/* Reorder Buttons */}
-                <div className="flex items-center border border-white/10 mr-2">
-                  <button
-                    onClick={() => moveProject(idx, "up")}
-                    disabled={idx === 0}
-                    title="Move higher on homepage"
-                    className="px-2 py-1.5 text-xs text-mute hover:text-bone disabled:opacity-30 disabled:hover:text-mute hover:bg-white/5"
+                  <Link
+                    href={`/work/${p.slug}`}
+                    target="_blank"
+                    className="border border-white/20 hover:border-bone text-xs px-3 py-1.5 text-mute hover:text-bone transition-colors"
                   >
-                    ↑
+                    Preview
+                  </Link>
+
+                  <button
+                    onClick={() => openEditForm(p)}
+                    className="bg-white/10 hover:bg-white/20 text-bone text-xs px-3 py-1.5 transition-colors font-medium"
+                  >
+                    Edit
                   </button>
+
                   <button
-                    onClick={() => moveProject(idx, "down")}
-                    disabled={idx === projects.length - 1}
-                    title="Move lower on homepage"
-                    className="px-2 py-1.5 text-xs text-mute hover:text-bone disabled:opacity-30 disabled:hover:text-mute hover:bg-white/5 border-l border-white/10"
+                    onClick={() => handleDelete(p.slug, p.title)}
+                    className="border border-red/40 hover:bg-red/20 text-red text-xs px-3 py-1.5 transition-colors"
                   >
-                    ↓
+                    Delete
                   </button>
                 </div>
-
-                <Link
-                  href={`/work/${p.slug}`}
-                  target="_blank"
-                  className="border border-white/20 hover:border-bone text-xs px-3 py-2 text-mute hover:text-bone transition-colors"
-                >
-                  Preview
-                </Link>
-
-                <button
-                  onClick={() => openEditForm(p)}
-                  className="bg-white/10 hover:bg-white/20 text-bone text-xs px-3 py-2 transition-colors font-medium"
-                >
-                  Edit
-                </button>
-
-                <button
-                  onClick={() => handleDelete(p.slug, p.title)}
-                  className="border border-red/40 hover:bg-red/20 text-red text-xs px-3 py-2 transition-colors"
-                >
-                  Delete
-                </button>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}

@@ -46,7 +46,7 @@ export function ScrollTimeline() {
             {track.map((c, j) => (
               <span
                 key={j}
-                className={`absolute inset-y-0 rounded-sm ${c.a ? "bg-red" : "bg-[#5a5a5a]"}`}
+                className={`absolute inset-y-0 rounded-sm ${c.a ? "bg-red" : "bg-[#8a8a8a]"}`}
                 style={{ left: `${c.l}%`, width: `${c.w}%` }}
               />
             ))}

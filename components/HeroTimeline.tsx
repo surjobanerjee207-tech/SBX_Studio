@@ -23,7 +23,7 @@ const tracks: TimelineTrack[] = [
   // Track 3: Audio FX / Dialogue (contains the single accent clip)
   [
     { left: 6, width: 18 },
-    { left: 28, width: 26, accent: true }, // Exactly one accent red clip (#E50914)
+    { left: 28, width: 26, accent: true }, // Exactly one accent red clip (bg-red)
     { left: 60, width: 32 },
   ],
   // Track 4: Music Bed / Ambience
@@ -38,32 +38,23 @@ export function HeroTimeline() {
   return (
     <div
       aria-hidden="true"
-      className="relative w-full aspect-[16/6] select-none pointer-events-none overflow-hidden"
+      className="timeline-container relative w-full aspect-[16/8] md:aspect-[16/6] py-3 select-none pointer-events-none overflow-hidden"
     >
-      {/* 4 Tracks with clips */}
-      <div className="w-full h-full pt-[2%]">
-        {tracks.map((track, trackIdx) => (
-          <div key={trackIdx} className="relative h-[18%] mb-[5%] w-full">
-            {track.map((clip, clipIdx) => (
+      <div className="flex h-full flex-col justify-between">
+        {tracks.map((track, i) => (
+          <div key={i} className="relative h-[16%]">
+            {track.map((clip, j) => (
               <div
-                key={clipIdx}
-                style={{
-                  left: `${clip.left}%`,
-                  width: `${clip.width}%`,
-                }}
-                className={`absolute top-0 bottom-0 rounded-[2px] ${
-                  clip.accent ? "bg-[#E50914]" : "bg-[#262626]"
-                }`}
+                key={j}
+                className={`absolute inset-y-0 rounded-sm ${clip.accent ? "bg-red" : "bg-[#262626]"}`}
+                style={{ left: `${clip.left}%`, width: `${clip.width}%` }}
               />
             ))}
           </div>
         ))}
       </div>
-
-      {/* 2px playhead line moving left to right across all tracks in a 6s loop */}
-      <div className="absolute -top-1 -bottom-1 right-full w-full pointer-events-none playhead-runner">
-        <div className="absolute right-0 top-0 bottom-0 w-[2px] bg-[#F5F5F5]" />
-      </div>
+      {/* playhead */}
+      <div className="playhead absolute inset-y-0 w-0.5 bg-bone" />
     </div>
   );
 }

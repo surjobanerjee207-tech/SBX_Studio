@@ -11,15 +11,35 @@ body{background:#080808;color:#F5F5F5;overflow-x:hidden}
 .t-body  { font-size: clamp(1rem, 1.1vw, 1.125rem); max-width: 34ch; }
 .grain{position:fixed;inset:0;pointer-events:none;opacity:.07;z-index:50;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");animation:g 1s steps(4) infinite}
 @keyframes g{25%{transform:translate(-2%,2%)}50%{transform:translate(2%,-1%)}75%{transform:translate(-1%,-2%)}}
+.timeline-container {
+  container-type: inline-size;
+}
+
 @keyframes playhead-sweep {
   0% {
+    left: 0;
     transform: translateX(0);
   }
   100% {
-    transform: translateX(100%);
+    left: 100%;
+    transform: translateX(-100%);
   }
 }
 
+@supports (transform: translateX(100cqw)) {
+  @keyframes playhead-sweep {
+    0% {
+      left: 0;
+      transform: translateX(0);
+    }
+    100% {
+      left: 0;
+      transform: translateX(calc(100cqw - 2px));
+    }
+  }
+}
+
+.playhead,
 .playhead-runner {
   animation: playhead-sweep 6s linear infinite;
 }
@@ -27,5 +47,6 @@ body{background:#080808;color:#F5F5F5;overflow-x:hidden}
 @media(prefers-reduced-motion:reduce){
   .grain{animation:none}
   *{scroll-behavior:auto!important}
-  .playhead-runner{animation:none;transform:translateX(35%)}
+  .playhead,
+  .playhead-runner{animation:none;left:35%;transform:translateX(0)}
 }

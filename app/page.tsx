@@ -31,7 +31,7 @@ export default async function Home() {
               </Link>
             </div>
           </div>
-          <div className="hidden md:block justify-self-end w-full max-w-[560px] self-start mt-24">
+          <div className="order-first md:order-none w-full max-w-[560px] mb-10 md:mb-0 md:justify-self-end md:self-start md:mt-24 opacity-70 md:opacity-100">
             <HeroTimeline />
           </div>
         </div>

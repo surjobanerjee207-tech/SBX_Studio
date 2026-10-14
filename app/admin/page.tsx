@@ -49,6 +49,17 @@ export default function AdminPage() {
     fetchProjects();
   }, []);
 
+  useEffect(() => {
+    if (isEditing) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isEditing]);
+
   const showNotify = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 4000);
@@ -390,8 +401,8 @@ export default function AdminPage() {
 
       {/* Edit / Create Modal */}
       {isEditing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-panel border border-white/20 w-full max-w-2xl p-6 md:p-8 my-8 relative shadow-2xl">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm p-4 sm:p-6 md:p-8 flex justify-center items-start">
+          <div className="bg-panel border border-white/20 w-full max-w-2xl p-6 md:p-8 my-6 sm:my-10 relative shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
               <h2 className="font-display text-2xl text-bone">
                 {editSlug ? "Edit Video Project" : "Publish New Video Project"}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getProjects } from "@/lib/projects.server";
 import { HeroTimeline } from "@/components/HeroTimeline";
+import { Reveal } from "@/components/Reveal";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,10 @@ export default async function Home() {
                 i % 2 === 1 ? "md:[&>*:first-child]:order-2" : ""
               }`}
             >
-              <div className="min-w-0 overflow-hidden">
+              <Reveal
+                x={i % 2 === 0 ? -60 : 60}
+                className="min-w-0 overflow-hidden"
+              >
                 <Link
                   href={`/work/${p.slug}`}
                   className="block overflow-hidden group bg-panel border border-white/10"
@@ -60,8 +64,12 @@ export default async function Home() {
                     className="w-full aspect-video object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 </Link>
-              </div>
-              <div className="min-w-0">
+              </Reveal>
+              <Reveal
+                x={i % 2 === 0 ? 60 : -60}
+                delay={0.15}
+                className="min-w-0"
+              >
                 <p className="text-mute text-sm uppercase tracking-wider">
                   {p.category} · {p.year}
                 </p>
@@ -77,7 +85,7 @@ export default async function Home() {
                 >
                   Watch Project
                 </Link>
-              </div>
+              </Reveal>
             </article>
           ))}
         </div>

@@ -21,9 +21,6 @@ export const metadata: Metadata = {
   title: "SBX_Studio | Video Editing & Visual Storytelling",
   description:
     "Explore cinematic video editing, promotional films, and creative storytelling by SBX_Studio.",
-  icons: {
-    icon: "/icon.svg",
-  },
   openGraph: {
     title: "SBX_Studio",
     type: "website",

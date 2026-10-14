@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Fraunces, Inter_Tight } from "next/font/google";
+import { ScrollTimeline } from "@/components/ScrollTimeline";
 
 const displayFont = Fraunces({
   subsets: ["latin"],
@@ -39,6 +40,7 @@ export default function RootLayout({
     <html lang="en" className={`${displayFont.variable} ${sansFont.variable}`}>
       <body className="font-sans">
         <div className="grain" aria-hidden />
+        <ScrollTimeline />
         <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-6 py-4 backdrop-blur bg-ink/70">
           <Link href="/" className="flex items-center gap-3 font-semibold whitespace-nowrap">
             <img src="/icon.svg" alt="" width={28} height={28} className="h-7 w-7" />
@@ -65,8 +67,8 @@ export default function RootLayout({
             </Link>
           </nav>
         </header>
-        <main>{children}</main>
-        <footer className="px-6 py-12 text-mute text-sm border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <main className="relative z-10">{children}</main>
+        <footer className="relative z-10 px-6 py-12 text-mute text-sm border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-bone font-display text-2xl flex items-center gap-2">
               <svg

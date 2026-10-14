@@ -30,36 +30,37 @@ export function ScrollTimeline() {
   const ticks = Array.from({ length: 41 });
 
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden" style={{ opacity: OPACITY }}>
-      {/* ruler */}
-      <div className="absolute inset-x-0 top-[34%] flex h-4 items-end justify-between px-[1%]">
-        {ticks.map((_, i) => (
-          <span key={i} className={`w-px bg-bone ${i % 5 === 0 ? "h-4" : "h-2"}`} />
-        ))}
+    <>
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden" style={{ opacity: OPACITY }}>
+        {/* ruler */}
+        <div className="absolute inset-x-0 top-[34%] flex h-4 items-end justify-between px-[1%]">
+          {ticks.map((_, i) => (
+            <span key={i} className={`w-px bg-bone ${i % 5 === 0 ? "h-4" : "h-2"}`} />
+          ))}
+        </div>
+        {/* played region */}
+        <motion.div className="absolute inset-x-0 top-[34%] h-0.5 origin-left bg-red" style={{ scaleX: reduce ? 0.3 : smooth }} />
+        {/* tracks */}
+        <div className="absolute inset-x-0 top-[37%] flex h-[26vh] min-h-[170px] flex-col justify-between">
+          {TRACKS.map((track, i) => (
+            <div key={i} className="relative h-[20%]">
+              {track.map((c, j) => (
+                <span
+                  key={j}
+                  className={`absolute inset-y-0 rounded-sm ${c.a ? "bg-red" : "bg-[#8a8a8a]"}`}
+                  style={{ left: `${c.l}%`, width: `${c.w}%` }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        {/* playhead */}
+        <motion.div className="absolute inset-y-0 left-0 w-[3px] bg-bone" style={{ x: reduce ? "30vw" : x }} />
       </div>
-      {/* played region */}
-      <motion.div className="absolute inset-x-0 top-[34%] h-0.5 origin-left bg-red" style={{ scaleX: reduce ? 0.3 : smooth }} />
-      {/* tracks */}
-      <div className="absolute inset-x-0 top-[37%] flex h-[26vh] min-h-[170px] flex-col justify-between">
-        {TRACKS.map((track, i) => (
-          <div key={i} className="relative h-[20%]">
-            {track.map((c, j) => (
-              <span
-                key={j}
-                className={`absolute inset-y-0 rounded-sm ${c.a ? "bg-red" : "bg-[#8a8a8a]"}`}
-                style={{ left: `${c.l}%`, width: `${c.w}%` }}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-      {/* playhead */}
-      <motion.div className="absolute inset-y-0 left-0 w-[3px] bg-bone" style={{ x: reduce ? "30vw" : x }} />
-      {/* timecode */}
-      <div className="absolute bottom-6 left-6 font-mono text-xs tracking-widest text-bone">
+      <div aria-hidden="true" className="pointer-events-none fixed bottom-5 left-5 z-0 font-mono text-xs tracking-widest text-bone/70">
         <motion.span>{reduce ? "00:00:27:00" : tc}</motion.span>
       </div>
-    </div>
+    </>
   );
 }
 

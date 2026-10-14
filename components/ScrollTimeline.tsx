@@ -54,7 +54,7 @@ export function ScrollTimeline() {
         ))}
       </div>
       {/* playhead */}
-      <motion.div className="absolute inset-y-0 left-0 w-0.5 bg-bone" style={{ x: reduce ? "30vw" : x }} />
+      <motion.div className="absolute inset-y-0 left-0 w-[3px] bg-bone" style={{ x: reduce ? "30vw" : x }} />
       {/* timecode */}
       <div className="absolute bottom-6 left-6 font-mono text-xs tracking-widest text-bone">
         <motion.span>{reduce ? "00:00:27:00" : tc}</motion.span>

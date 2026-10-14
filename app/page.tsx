@@ -13,7 +13,8 @@ export default async function Home() {
         <div className="wrap w-full grid items-end gap-12 md:grid-cols-[1.2fr_1fr]">
           <div>
             <h1 className="font-display t-hero">
-              Every Frame<br />Tells a Story.
+              <span className="block whitespace-nowrap">Every Frame</span>
+              <span className="block whitespace-nowrap">Tells a Story.</span>
             </h1>
             <p className="mt-6 text-mute">
               Video Editing · Visual Storytelling · Creative Post-Production

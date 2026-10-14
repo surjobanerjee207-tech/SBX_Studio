@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Project, parseVideoUrl } from "@/lib/projects";
+import { ThumbnailUploader } from "@/components/ThumbnailUploader";
 
 export default function AdminPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -478,26 +479,12 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Thumbnail URL (Custom or auto) */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-bone mb-2">
-                  4. Thumbnail Image (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={customThumbnail}
-                  onChange={(e) => setCustomThumbnail(e.target.value)}
-                  placeholder={
-                    parsed.autoThumbnail
-                      ? `Auto-detected: ${parsed.autoThumbnail.slice(0, 45)}...`
-                      : "Paste image URL or leave empty to use auto-thumbnail"
-                  }
-                  className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone placeholder-mute/50 focus:border-red focus:outline-none"
-                />
-                <p className="text-[11px] text-mute mt-1">
-                  Leave blank to automatically use YouTube&apos;s highest-quality thumbnail.
-                </p>
-              </div>
+              {/* Drag and Drop Thumbnail Uploader */}
+              <ThumbnailUploader
+                thumbnailUrl={customThumbnail}
+                autoThumbnail={parsed.autoThumbnail}
+                onThumbnailChange={setCustomThumbnail}
+              />
 
               {/* Description */}
               <div>

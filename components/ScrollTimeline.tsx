@@ -1,7 +1,7 @@
 "use client";
 import { motion, useScroll, useSpring, useTransform, useReducedMotion } from "framer-motion";
 
-const OPACITY = 0.2; // overall visibility: raise for more, lower for less
+const OPACITY = 0.45; // overall visibility: raise for more, lower for less
 const DURATION_SEC = 90; // fake "sequence length" shown by the timecode
 const FPS = 24;
 

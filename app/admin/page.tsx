@@ -77,6 +77,8 @@ export default function AdminPage() {
       setRawVideoUrl(`https://www.youtube.com/watch?v=${p.videoUrl}`);
     } else if (p.provider === "vimeo" && !p.videoUrl.includes("http")) {
       setRawVideoUrl(`https://vimeo.com/${p.videoUrl}`);
+    } else if (p.provider === "googledrive" && !p.videoUrl.includes("http")) {
+      setRawVideoUrl(`https://drive.google.com/file/d/${p.videoUrl}/view`);
     } else {
       setRawVideoUrl(p.videoUrl);
     }
@@ -311,7 +313,7 @@ export default function AdminPage() {
                     className="w-full h-full object-cover"
                   />
                   <span className="absolute bottom-1 right-1 text-[10px] bg-black/80 px-1 py-0.5 uppercase tracking-wider font-mono text-white/80">
-                    {p.provider}
+                    {p.provider === "googledrive" ? "DRIVE" : p.provider.toUpperCase()}
                   </span>
                 </div>
 
@@ -328,7 +330,7 @@ export default function AdminPage() {
                     {p.description || "No description provided."}
                   </p>
                   <p className="text-[11px] text-mute/80 mt-1 font-mono truncate">
-                    Video: {p.videoUrl ? (p.provider === "youtube" ? `YouTube (${p.videoUrl})` : p.videoUrl) : "None (placeholder)"}
+                    Video: {p.videoUrl ? (p.provider === "youtube" ? `YouTube (${p.videoUrl})` : p.provider === "googledrive" ? `Google Drive (${p.videoUrl})` : p.videoUrl) : "None (placeholder)"}
                   </p>
                 </div>
               </div>
@@ -401,25 +403,25 @@ export default function AdminPage() {
             <form onSubmit={handleSave} className="space-y-6">
               {/* Video URL Input with Auto Detection */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-bone mb-2">
-                  1. Video Link / URL <span className="text-red">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={rawVideoUrl}
-                    onChange={(e) => setRawVideoUrl(e.target.value)}
-                    placeholder="Paste YouTube link (https://youtube.com/watch?v=...), Vimeo, or MP4 URL"
-                    className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone placeholder-mute/50 focus:border-red focus:outline-none"
-                  />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-bone">
+                    1. Video Link / URL <span className="text-red">*</span>
+                  </label>
                   {rawVideoUrl && (
-                    <span className="absolute right-3 top-3 text-[11px] bg-red/20 text-red px-2 py-0.5 uppercase tracking-wider font-mono">
-                      Detected: {parsed.provider}
+                    <span className="text-[11px] bg-red/20 text-red px-2.5 py-0.5 uppercase tracking-wider font-mono border border-red/30">
+                      Detected: {parsed.provider === "googledrive" ? "Google Drive" : parsed.provider.toUpperCase()}
                     </span>
                   )}
                 </div>
+                <input
+                  type="text"
+                  value={rawVideoUrl}
+                  onChange={(e) => setRawVideoUrl(e.target.value)}
+                  placeholder="Paste YouTube, Vimeo, Google Drive, or MP4 URL"
+                  className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone placeholder-mute/50 focus:border-red focus:outline-none"
+                />
                 <p className="text-xs text-mute mt-1.5">
-                  Paste standard YouTube videos, YouTube Shorts, Vimeo links, or direct .mp4 URLs. We extract the ID and thumbnail automatically!
+                  Paste YouTube, Vimeo, Google Drive (view or share link), or direct .mp4 URLs. We extract the ID and embed automatically!
                 </p>
 
                 {/* Live Preview if valid */}

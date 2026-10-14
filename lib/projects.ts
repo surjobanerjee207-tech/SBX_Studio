@@ -6,7 +6,7 @@ export type Project = {
   year: number;
   thumbnail: string;
   videoUrl: string;
-  provider: "mp4" | "youtube" | "vimeo";
+  provider: "mp4" | "youtube" | "vimeo" | "googledrive";
   role: string;
   tools: string[];
 };
@@ -19,13 +19,13 @@ export const placeholderThumb = (title: string) =>
 /**
  * Intelligent video URL parser:
  * Automatically detects YouTube (watch, shorts, embed, youtu.be),
- * Vimeo, and direct MP4/video URLs. Extracts ID and auto-generates thumbnails!
+ * Vimeo, Google Drive (view, share, preview links), and direct MP4/video URLs.
  */
 export function parseVideoUrl(
   input: string,
-  preferredProvider?: "mp4" | "youtube" | "vimeo"
+  preferredProvider?: "mp4" | "youtube" | "vimeo" | "googledrive"
 ): {
-  provider: "mp4" | "youtube" | "vimeo";
+  provider: "mp4" | "youtube" | "vimeo" | "googledrive";
   videoUrl: string;
   autoThumbnail?: string;
 } {
@@ -48,7 +48,7 @@ export function parseVideoUrl(
   }
 
   // Raw 11-char YouTube ID
-  if (/^[\w-]{11}$/.test(url)) {
+  if (/^[\w-]{11}$/.test(url) && preferredProvider === "youtube") {
     return {
       provider: "youtube",
       videoUrl: url,
@@ -56,7 +56,20 @@ export function parseVideoUrl(
     };
   }
 
-  // 2. Vimeo: standard URL or embed
+  // 2. Google Drive: standard share link, /view, /edit, /preview, or open?id=
+  const gdriveMatch = url.match(
+    /(?:drive\.google\.com\/(?:file\/d\/|open\?id=))([a-zA-Z0-9_-]+)/i
+  );
+  if (gdriveMatch) {
+    const id = gdriveMatch[1];
+    return {
+      provider: "googledrive",
+      videoUrl: id,
+      autoThumbnail: `https://drive.google.com/thumbnail?id=${id}&sz=w1600`,
+    };
+  }
+
+  // 3. Vimeo: standard URL or embed
   const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
   if (vimeoMatch) {
     return {
@@ -66,14 +79,14 @@ export function parseVideoUrl(
   }
 
   // Raw numeric Vimeo ID
-  if (/^\d{6,12}$/.test(url)) {
+  if (/^\d{6,12}$/.test(url) && preferredProvider === "vimeo") {
     return {
       provider: "vimeo",
       videoUrl: url,
     };
   }
 
-  // 3. Fallback to direct MP4
+  // 4. Fallback to direct MP4
   return {
     provider: preferredProvider || "mp4",
     videoUrl: url,

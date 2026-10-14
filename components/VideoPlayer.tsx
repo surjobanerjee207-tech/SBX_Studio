@@ -56,6 +56,21 @@ export function VideoPlayer({
     );
   }
 
+  if (provider === "googledrive") {
+    const src = `https://drive.google.com/file/d/${parsedUrl}/preview`;
+    return (
+      <div className="aspect-video relative bg-black overflow-hidden border border-white/10">
+        <iframe
+          className="absolute inset-0 size-full"
+          src={src}
+          title={p.title}
+          allow="autoplay; fullscreen"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
   const src =
     provider === "youtube"
       ? `https://www.youtube-nocookie.com/embed/${parsedUrl}?autoplay=1&rel=0`

@@ -38,12 +38,12 @@ export function HeroTimeline() {
   return (
     <div
       aria-hidden="true"
-      className="relative w-full select-none pointer-events-none py-2.5 overflow-hidden"
+      className="relative w-full aspect-[16/6] select-none pointer-events-none overflow-hidden"
     >
       {/* 4 Tracks with clips */}
-      <div className="space-y-2 sm:space-y-2.5">
+      <div className="w-full h-full pt-[2%]">
         {tracks.map((track, trackIdx) => (
-          <div key={trackIdx} className="relative h-5 sm:h-6 w-full">
+          <div key={trackIdx} className="relative h-[18%] mb-[5%] w-full">
             {track.map((clip, clipIdx) => (
               <div
                 key={clipIdx}
@@ -60,8 +60,8 @@ export function HeroTimeline() {
         ))}
       </div>
 
-      {/* 2px playhead line moving left to right via translateX in a 6s loop */}
-      <div className="absolute top-0 bottom-0 right-full w-full pointer-events-none playhead-runner">
+      {/* 2px playhead line moving left to right across all tracks in a 6s loop */}
+      <div className="absolute -top-1 -bottom-1 right-full w-full pointer-events-none playhead-runner">
         <div className="absolute right-0 top-0 bottom-0 w-[2px] bg-[#F5F5F5]" />
       </div>
     </div>

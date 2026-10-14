@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getProjects } from "@/lib/projects.server";
+import { HeroTimeline } from "@/components/HeroTimeline";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,12 @@ export default async function Home() {
 
   return (
     <>
-      <section className="min-h-screen flex flex-col justify-end px-6 pb-20 pt-32">
+      <section className="min-h-screen relative flex flex-col justify-end px-6 pb-20 pt-32 overflow-hidden">
+        {/* Desktop: timeline sits in right half of the hero, ~46% wide, vertically centred in upper-middle */}
+        <div className="hidden md:block absolute top-[36%] -translate-y-1/2 right-6 lg:right-12 xl:right-16 w-[46%] max-w-2xl pointer-events-none">
+          <HeroTimeline />
+        </div>
+
         <h1 className="font-display text-[clamp(3rem,8vw,7.5rem)] leading-[1.05]">
           Every Frame<br />Tells a Story.
         </h1>
@@ -25,6 +31,11 @@ export default async function Home() {
           <Link href="/contact" className="border border-white/20 px-6 py-3 hover:border-bone transition-colors">
             Let&apos;s Collaborate
           </Link>
+        </div>
+
+        {/* Mobile: smaller, lower-opacity strip below the buttons */}
+        <div className="mt-10 md:hidden opacity-50 w-full max-w-xs sm:max-w-sm pointer-events-none">
+          <HeroTimeline />
         </div>
       </section>
 

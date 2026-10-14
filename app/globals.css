@@ -4,4 +4,21 @@ body{background:#080808;color:#F5F5F5;overflow-x:hidden}
 .font-display{font-family:var(--f-display),serif}
 .grain{position:fixed;inset:0;pointer-events:none;opacity:.07;z-index:50;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");animation:g 1s steps(4) infinite}
 @keyframes g{25%{transform:translate(-2%,2%)}50%{transform:translate(2%,-1%)}75%{transform:translate(-1%,-2%)}}
-@media(prefers-reduced-motion:reduce){.grain{animation:none}*{scroll-behavior:auto!important}}
+@keyframes playhead-sweep {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.playhead-runner {
+  animation: playhead-sweep 6s linear infinite;
+}
+
+@media(prefers-reduced-motion:reduce){
+  .grain{animation:none}
+  *{scroll-behavior:auto!important}
+  .playhead-runner{animation:none;transform:translateX(35%)}
+}

@@ -84,7 +84,10 @@ export default function AdminPage() {
       setRawVideoUrl(p.videoUrl);
     }
     setCustomThumbnail(
-      p.thumbnail.startsWith("data:image/svg") ? "" : p.thumbnail
+      p.thumbnail.startsWith("data:image/svg") ||
+        p.thumbnail.includes("drive.google.com")
+        ? ""
+        : p.thumbnail
     );
     setRole(p.role);
     setToolsStr(p.tools.join(", "));

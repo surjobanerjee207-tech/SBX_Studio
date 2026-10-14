@@ -65,7 +65,6 @@ export function parseVideoUrl(
     return {
       provider: "googledrive",
       videoUrl: id,
-      autoThumbnail: `https://drive.google.com/thumbnail?id=${id}&sz=w1600`,
     };
   }
 

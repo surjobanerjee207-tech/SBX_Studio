@@ -39,31 +39,28 @@ export default function RootLayout({
     <html lang="en" className={`${displayFont.variable} ${sansFont.variable}`}>
       <body className="font-sans">
         <div className="grain" aria-hidden />
-        <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-6 py-4 backdrop-blur bg-ink/70">
-          <Link href="/" className="flex items-center gap-3 font-semibold whitespace-nowrap">
-            <img src="/icon.svg" alt="" width={28} height={28} className="h-7 w-7" />
-            SBX_Studio
-          </Link>
-          <nav aria-label="Main" className="flex items-center gap-5 text-sm text-mute">
-            <Link href="/" className="hover:text-bone hidden sm:block">
-              Home
+        <header className="fixed top-0 inset-x-0 z-40 backdrop-blur bg-ink/70">
+          <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
+            <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap font-semibold">
+              <img src="/icon.svg" alt="" width={28} height={28} className="h-7 w-7" />
+              SBX_Studio
             </Link>
-            <Link href="/#work" className="hover:text-bone">
-              Work
-            </Link>
-            <Link
-              href="/admin"
-              className="hover:text-bone text-xs border border-white/20 px-2.5 py-1 text-mute hover:border-bone transition-colors"
-            >
-              Studio ⚙
-            </Link>
-            <Link
-              href="/contact"
-              className="bg-red text-bone px-4 py-2 hover:bg-cherry transition-colors"
-            >
-              Let&apos;s Work Together
-            </Link>
-          </nav>
+
+            <nav aria-label="Main" className="flex items-center gap-3 sm:gap-5 text-sm text-mute">
+              <Link href="/" className="hidden md:inline hover:text-bone">Home</Link>
+              <Link href="/#work" className="hidden md:inline hover:text-bone">Work</Link>
+              {process.env.NODE_ENV === "development" && (
+                <Link href="/studio" className="hidden md:inline border border-white/20 px-3 py-1 hover:text-bone">Studio</Link>
+              )}
+              <Link
+                href="/contact"
+                className="shrink-0 whitespace-nowrap bg-red px-3 py-2 text-bone transition-colors hover:bg-cherry sm:px-4"
+              >
+                <span className="sm:hidden">Let&apos;s Talk</span>
+                <span className="hidden sm:inline">Let&apos;s Work Together</span>
+              </Link>
+            </nav>
+          </div>
         </header>
         <main>{children}</main>
         <footer className="px-6 py-12 text-mute text-sm border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

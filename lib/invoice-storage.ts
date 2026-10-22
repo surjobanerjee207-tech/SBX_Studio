@@ -818,7 +818,16 @@ export async function createInvoice(data: Partial<Invoice>): Promise<Invoice> {
   const id = `inv_${crypto.randomBytes(8).toString("hex")}`;
   const publicToken = crypto.randomBytes(16).toString("hex");
 
-  const number = data.number || (await getNextInvoiceNumber());
+  const number = (data.number ? data.number.trim() : "") || (await getNextInvoiceNumber());
+
+  // Verify unique invoice number
+  const existingInvoices = await getInvoices();
+  const isDuplicate = existingInvoices.some(
+    (inv) => inv.number.toLowerCase() === number.toLowerCase()
+  );
+  if (isDuplicate) {
+    throw new Error(`Invoice number "${number}" already exists. Please choose a unique invoice number.`);
+  }
   const totals = calculateInvoiceTotals(data);
 
   // Compute status
@@ -959,6 +968,17 @@ export async function updateInvoice(
   const existing = await getInvoiceById(id);
   if (!existing) {
     throw new Error(`Invoice with id ${id} not found`);
+  }
+
+  const targetNumber = (data.number ? data.number.trim() : existing.number);
+  if (targetNumber.toLowerCase() !== existing.number.toLowerCase()) {
+    const allInvoices = await getInvoices();
+    const isDuplicate = allInvoices.some(
+      (inv) => inv.id !== id && inv.number.toLowerCase() === targetNumber.toLowerCase()
+    );
+    if (isDuplicate) {
+      throw new Error(`Invoice number "${targetNumber}" already exists. Please choose a unique invoice number.`);
+    }
   }
 
   const now = new Date().toISOString();

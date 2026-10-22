@@ -116,11 +116,27 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
           fetch("/api/admin/services"),
         ]);
 
-        const settingsData = await settingsRes.json();
-        const clientsData = await clientsRes.json();
-        const servicesData = await servicesRes.json();
+        if (settingsRes.status === 401 || clientsRes.status === 401 || servicesRes.status === 401) {
+          router.push("/admin/login");
+          return;
+        }
 
-        if (settingsData.settings) {
+        const parseJsonSafe = async (res: Response) => {
+          try {
+            const txt = await res.text();
+            return txt ? JSON.parse(txt) : {};
+          } catch {
+            return {};
+          }
+        };
+
+        const [settingsData, clientsData, servicesData] = await Promise.all([
+          parseJsonSafe(settingsRes),
+          parseJsonSafe(clientsRes),
+          parseJsonSafe(servicesRes),
+        ]);
+
+        if (settingsData?.settings) {
           setSettings(settingsData.settings);
           if (isNew) {
             setCurrency(settingsData.settings.defaultCurrency || "INR");
@@ -132,14 +148,18 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
           }
         }
 
-        if (clientsData.clients) setClients(clientsData.clients);
-        if (servicesData.services) setServices(servicesData.services);
+        if (clientsData?.clients) setClients(clientsData.clients);
+        if (servicesData?.services) setServices(servicesData.services);
 
         // If new, get next invoice number
         if (isNew && !number) {
           const invRes = await fetch("/api/admin/invoices");
-          const invData = await invRes.json();
-          if (invData.nextNumber) setNumber(invData.nextNumber);
+          if (invRes.status === 401) {
+            router.push("/admin/login");
+            return;
+          }
+          const invData = await parseJsonSafe(invRes);
+          if (invData?.nextNumber) setNumber(invData.nextNumber);
         }
       } catch (err: any) {
         console.error("Failed to load initial data", err);
@@ -293,31 +313,35 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
       return;
     }
 
+    setError(null);
+    setSuccessMsg(null);
+
+    // Validation checks
     if (!clientName.trim()) {
-      setError("Please provide a client name.");
-      setActiveTab("editor");
+      setError("Client name is required.");
       return;
     }
 
-    if (items.length === 0) {
-      setError("Please add at least one line item.");
-      setActiveTab("editor");
+    if (!number.trim()) {
+      setError("Invoice number is required.");
+      return;
+    }
+
+    if (!items || items.length === 0) {
+      setError("At least one line item is required.");
       return;
     }
 
     setSaving(true);
-    setError(null);
-    setSuccessMsg(null);
 
     const targetStatus = overrideStatus || status;
-
     const payload = {
       ...previewInvoice,
       status: targetStatus,
     };
 
     try {
-      let res;
+      let res: Response;
       if (isNew) {
         res = await fetch("/api/admin/invoices", {
           method: "POST",
@@ -332,9 +356,27 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
         });
       }
 
-      const data = await res.json();
+      // If unauthorized, redirect to login
+      if (res.status === 401) {
+        router.push("/admin/login");
+        return;
+      }
+
+      // Safely read response text before parsing JSON
+      const text = await res.text();
+      let data: any = null;
+      if (text && text.trim().length > 0) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          // Response body was not valid JSON
+        }
+      }
+
       if (!res.ok) {
-        throw new Error(data.error || "Failed to save invoice");
+        const errorMsg =
+          data?.error || data?.message || "Could not save the invoice. Please try again.";
+        throw new Error(errorMsg);
       }
 
       setSuccessMsg(
@@ -348,7 +390,8 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
         router.refresh();
       }, 1000);
     } catch (err: any) {
-      setError(err.message || "An error occurred while saving.");
+      console.error("Failed to save invoice:", err);
+      setError(err.message || "Could not save the invoice. Please try again.");
     } finally {
       setSaving(false);
     }

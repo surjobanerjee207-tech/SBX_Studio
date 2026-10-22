@@ -11,40 +11,82 @@ export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  if (!isAuthenticatedRequest(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    if (!isAuthenticatedRequest(req)) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized. Please log in." },
+        { status: 401 }
+      );
+    }
 
-  const invoice = await getInvoiceById(params.id);
-  if (!invoice) {
-    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-  }
+    const invoice = await getInvoiceById(params.id);
+    if (!invoice) {
+      return NextResponse.json(
+        { ok: false, error: "Invoice not found." },
+        { status: 404 }
+      );
+    }
 
-  return NextResponse.json({ invoice });
+    return NextResponse.json({ ok: true, data: invoice, invoice });
+  } catch (err: any) {
+    console.error(`GET /api/admin/invoices/${params.id} error:`, err);
+    return NextResponse.json(
+      { ok: false, error: "Failed to fetch invoice." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  if (!isAuthenticatedRequest(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = await req.json().catch(() => null);
-  const parsed = InvoiceSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message || "Invalid invoice data", issues: parsed.error.issues },
-      { status: 400 }
-    );
-  }
-
   try {
+    if (!isAuthenticatedRequest(req)) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized. Please log in." },
+        { status: 401 }
+      );
+    }
+
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: "Invalid JSON request body." },
+        { status: 400 }
+      );
+    }
+
+    const parsed = InvoiceSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
+      const errorMessage = firstIssue
+        ? `${firstIssue.path.join(".")}: ${firstIssue.message}`
+        : "Invalid invoice data.";
+      return NextResponse.json(
+        { ok: false, error: errorMessage, issues: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
     const updated = await updateInvoice(params.id, parsed.data);
-    return NextResponse.json({ ok: true, invoice: updated });
+    return NextResponse.json({ ok: true, data: updated, invoice: updated });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to update invoice" }, { status: 400 });
+    console.error(`PUT /api/admin/invoices/${params.id} error:`, err);
+    const isConflict =
+      err.message?.includes("already exists") ||
+      err.message?.includes("already in use") ||
+      err.code === "P2002";
+    const isNotFound = err.message?.includes("not found");
+    return NextResponse.json(
+      {
+        ok: false,
+        error: err.message || "Could not save the invoice. Please try again.",
+      },
+      { status: isNotFound ? 404 : isConflict ? 409 : 500 }
+    );
   }
 }
 
@@ -52,10 +94,21 @@ export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  if (!isAuthenticatedRequest(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    if (!isAuthenticatedRequest(req)) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized. Please log in." },
+        { status: 401 }
+      );
+    }
 
-  await deleteInvoice(params.id);
-  return NextResponse.json({ ok: true });
+    await deleteInvoice(params.id);
+    return NextResponse.json({ ok: true, data: { id: params.id } });
+  } catch (err: any) {
+    console.error(`DELETE /api/admin/invoices/${params.id} error:`, err);
+    return NextResponse.json(
+      { ok: false, error: "Failed to delete invoice." },
+      { status: 500 }
+    );
+  }
 }

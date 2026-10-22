@@ -6,14 +6,21 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  if (!isAuthenticatedRequest(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    if (!isAuthenticatedRequest(req)) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized. Please log in." },
+        { status: 401 }
+      );
+    }
+
     const duplicated = await duplicateInvoice(params.id);
-    return NextResponse.json({ ok: true, invoice: duplicated });
+    return NextResponse.json({ ok: true, data: duplicated, invoice: duplicated });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to duplicate invoice" }, { status: 400 });
+    console.error(`duplicate error for ${params.id}:`, err);
+    return NextResponse.json(
+      { ok: false, error: err.message || "Failed to duplicate invoice." },
+      { status: 400 }
+    );
   }
 }

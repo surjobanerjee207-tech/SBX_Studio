@@ -16,26 +16,73 @@ import { formatMoney } from "../invoice-calc";
 import { generateInvoiceQrDataUrl } from "../upi-qr";
 
 let fontsRegistered = false;
-function registerCustomFonts() {
+export function registerCustomFonts() {
   if (fontsRegistered) return;
   fontsRegistered = true;
-  try {
-    const regularFontPath = path.join(process.cwd(), "assets", "fonts", "Inter-Regular.ttf");
-    const boldFontPath = path.join(process.cwd(), "assets", "fonts", "Inter-Bold.ttf");
 
-    if (fs.existsSync(regularFontPath) && fs.existsSync(boldFontPath)) {
+  try {
+    Font.registerHyphenationCallback((word) => [word]);
+  } catch (err) {
+    console.warn("Could not register hyphenation callback:", err);
+  }
+
+  try {
+    const fontsDir = path.join(process.cwd(), "assets", "fonts");
+    const regularPath = path.join(fontsDir, "Inter-Regular.ttf");
+    const italicPath = path.join(fontsDir, "Inter-Italic.ttf");
+    const mediumPath = path.join(fontsDir, "Inter-Medium.ttf");
+    const semiBoldPath = path.join(fontsDir, "Inter-SemiBold.ttf");
+    const boldPath = path.join(fontsDir, "Inter-Bold.ttf");
+
+    const hasRegular = fs.existsSync(regularPath);
+    const hasBold = fs.existsSync(boldPath);
+    const hasItalic = fs.existsSync(italicPath);
+    const hasMedium = fs.existsSync(mediumPath);
+    const hasSemiBold = fs.existsSync(semiBoldPath);
+
+    if (hasRegular && hasBold) {
       Font.register({
         family: "Inter",
         fonts: [
-          { src: regularFontPath, fontWeight: "normal" },
-          { src: boldFontPath, fontWeight: "bold" },
+          { src: regularPath, fontWeight: "normal" as const },
+          { src: regularPath, fontWeight: 400 },
+          {
+            src: hasItalic ? italicPath : regularPath,
+            fontWeight: "normal" as const,
+            fontStyle: "italic" as const,
+          },
+          {
+            src: hasItalic ? italicPath : regularPath,
+            fontWeight: 400,
+            fontStyle: "italic" as const,
+          },
+          { src: hasMedium ? mediumPath : regularPath, fontWeight: 500 },
+          { src: hasSemiBold ? semiBoldPath : boldPath, fontWeight: 600 },
+          { src: boldPath, fontWeight: "bold" as const },
+          { src: boldPath, fontWeight: 700 },
         ],
       });
     } else {
-      console.warn("Custom Inter font files not found at assets/fonts, falling back to standard fonts.");
+      console.warn("Custom Inter font files not found at assets/fonts, falling back to standard Helvetica.");
+      Font.register({
+        family: "Inter",
+        fonts: [
+          { src: "Helvetica", fontWeight: "normal" as const },
+          { src: "Helvetica-Bold", fontWeight: "bold" as const },
+        ],
+      });
     }
   } catch (err) {
     console.error("Failed to register custom PDF fonts:", err);
+    try {
+      Font.register({
+        family: "Inter",
+        fonts: [
+          { src: "Helvetica", fontWeight: "normal" as const },
+          { src: "Helvetica-Bold", fontWeight: "bold" as const },
+        ],
+      });
+    } catch (_) {}
   }
 }
 
@@ -352,7 +399,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 7.5,
     color: MUTED,
-    fontStyle: "italic",
   },
   pageNumber: {
     position: "absolute",

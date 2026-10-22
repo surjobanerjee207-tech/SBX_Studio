@@ -16,6 +16,13 @@ import {
 import { calculateInvoiceTotals, formatMoney } from "@/lib/invoice-calc";
 import { LiveInvoicePreview } from "./LiveInvoicePreview";
 
+const CURRENCY_OPTIONS: { value: Currency; short: string; full: string }[] = [
+  { value: "INR", short: "₹ INR", full: "INR (₹ - Indian Rupee)" },
+  { value: "USD", short: "$ USD", full: "USD ($ - US Dollar)" },
+  { value: "EUR", short: "€ EUR", full: "EUR (€ - Euro)" },
+  { value: "GBP", short: "£ GBP", full: "GBP (£ - British Pound)" },
+];
+
 interface InvoiceEditorProps {
   initialInvoice?: Invoice;
   isNew?: boolean;
@@ -46,6 +53,7 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
   const [date, setDate] = useState(initialInvoice?.date || todayStr);
   const [dueDate, setDueDate] = useState(initialInvoice?.dueDate || inSevenDaysStr);
   const [currency, setCurrency] = useState<Currency>(initialInvoice?.currency || "INR");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
   const [status, setStatus] = useState(initialInvoice?.status || "Draft");
 
   // Items
@@ -580,16 +588,30 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
                 <label className="block text-xs font-semibold uppercase tracking-wider text-secondary mb-1.5">
                   Currency
                 </label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value as Currency)}
-                  className="w-full bg-ink border border-white/15 focus:border-red rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
-                >
-                  <option value="INR">INR (₹ - Indian Rupee)</option>
-                  <option value="USD">USD ($ - US Dollar)</option>
-                  <option value="EUR">EUR (€ - Euro)</option>
-                  <option value="GBP">GBP (£ - British Pound)</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={currency}
+                    onFocus={() => setCurrencyOpen(true)}
+                    onBlur={() => setCurrencyOpen(false)}
+                    onMouseDown={() => setCurrencyOpen(true)}
+                    onChange={(e) => {
+                      setCurrency(e.target.value as Currency);
+                      setCurrencyOpen(false);
+                    }}
+                    className="w-full bg-ink border border-white/15 focus:border-red rounded-xl pl-3.5 pr-10 py-2.5 text-sm text-white focus:outline-none appearance-none cursor-pointer"
+                  >
+                    {CURRENCY_OPTIONS.map((c) => (
+                      <option key={c.value} value={c.value} className="bg-zinc-900 text-white">
+                        {!currencyOpen && currency === c.value ? c.short : c.full}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-secondary">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               <div>

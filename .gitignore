@@ -12,10 +12,18 @@ build/
 dist/
 
 # Environment files (never push local secrets)
-.env.local
-.env.*.local
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+!.env.example
 
-# Prisma generated client if in custom location
+# Local database and temp files
+*.db
+*.db-journal
+*.sqlite
+data/*.tmp.*
 prisma/*.db
 
 # IDE and OS files

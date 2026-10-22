@@ -191,18 +191,80 @@ const DEFAULT_CLIENTS: Client[] = [
   },
 ];
 
-// Helper to check if PostgreSQL via Prisma is available
+// Singleton prisma client
+declare global {
+  // eslint-disable-next-line no-var
+  var prismaGlobal: any | undefined;
+}
+
+// Helper to check if PostgreSQL via Prisma is available with caching
 async function getPrismaClient() {
   if (!process.env.DATABASE_URL) return null;
   try {
+    if (globalThis.prismaGlobal) {
+      return globalThis.prismaGlobal;
+    }
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
-    // Test connectivity
     await prisma.$queryRaw`SELECT 1`;
+    globalThis.prismaGlobal = prisma;
     return prisma;
   } catch (err) {
     return null;
   }
+}
+
+function mapPrismaInvoice(rec: any): Invoice {
+  const dateStr = rec.date instanceof Date ? rec.date.toISOString().split("T")[0] : String(rec.date).split("T")[0];
+  const dueDateStr = rec.dueDate instanceof Date ? rec.dueDate.toISOString().split("T")[0] : String(rec.dueDate).split("T")[0];
+  const computedStatus = getComputedStatus(rec.status, dueDateStr);
+
+  return {
+    id: rec.id,
+    number: rec.number,
+    clientId: rec.clientId || null,
+    clientName: rec.clientName || "",
+    clientCompany: rec.clientCompany || "",
+    clientEmail: rec.clientEmail || "",
+    clientPhone: rec.clientPhone || "",
+    clientAddress: rec.clientAddress || "",
+    clientCountry: rec.clientCountry || "India",
+    date: dateStr,
+    dueDate: dueDateStr,
+    currency: (rec.currency as any) || "INR",
+    status: computedStatus,
+    paymentInstructions: rec.paymentInstructions || "",
+    footerNotes: rec.footerNotes || "",
+    subtotal: rec.subtotal,
+    discountType: (rec.discountType as any) || "percent",
+    discountValue: rec.discountValue,
+    discountAmount: rec.discountAmount,
+    taxEnabled: rec.taxEnabled,
+    taxRate: rec.taxRate,
+    taxAmount: rec.taxAmount,
+    extraCharges: rec.extraCharges,
+    extraChargesLabel: rec.extraChargesLabel || "Rush Turnaround Fee",
+    grandTotal: rec.grandTotal,
+    advancePaid: rec.advancePaid,
+    balanceDue: rec.balanceDue,
+    publicToken: rec.publicToken,
+    publicLinkEnabled: rec.publicLinkEnabled ?? true,
+    sentAt: rec.sentAt ? (rec.sentAt instanceof Date ? rec.sentAt.toISOString() : String(rec.sentAt)) : null,
+    createdAt: rec.createdAt instanceof Date ? rec.createdAt.toISOString() : String(rec.createdAt),
+    updatedAt: rec.updatedAt instanceof Date ? rec.updatedAt.toISOString() : String(rec.updatedAt),
+    items: Array.isArray(rec.items)
+      ? rec.items.map((it: any) => ({
+          id: it.id,
+          name: it.name,
+          description: it.description || "",
+          quantity: it.quantity,
+          unit: it.unit || "video",
+          unitPrice: it.unitPrice,
+          total: it.total,
+          order: it.order,
+        }))
+      : [],
+  };
 }
 
 /**
@@ -233,13 +295,20 @@ async function readStore(): Promise<InvoicingStoreData> {
 }
 
 /**
- * Writes to local JSON store atomically.
+ * Writes to local JSON store atomically with serverless EROFS fallback.
  */
 async function writeStore(data: InvoicingStoreData): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  const tempPath = `${STORE_PATH}.tmp.${Date.now()}`;
-  await fs.writeFile(tempPath, JSON.stringify(data, null, 2), "utf-8");
-  await fs.rename(tempPath, STORE_PATH);
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    const tempPath = `${STORE_PATH}.tmp.${Date.now()}`;
+    await fs.writeFile(tempPath, JSON.stringify(data, null, 2), "utf-8");
+    await fs.rename(tempPath, STORE_PATH);
+  } catch (err) {
+    if (process.env.DATABASE_URL) {
+      return;
+    }
+    throw err;
+  }
 }
 
 // ----------------------------------------------------
@@ -397,7 +466,7 @@ export async function getClients(): Promise<Client[]> {
   if (prisma) {
     try {
       const records = await prisma.client.findMany({ orderBy: { name: "asc" } });
-      return records.map((r) => ({
+      return records.map((r: any) => ({
         id: r.id,
         name: r.name,
         company: r.company || "",
@@ -498,7 +567,7 @@ export async function getServices(): Promise<ServicePreset[]> {
     try {
       const records = await prisma.servicePreset.findMany({ orderBy: { order: "asc" } });
       if (records.length > 0) {
-        return records.map((r) => ({
+        return records.map((r: any) => ({
           id: r.id,
           name: r.name,
           description: r.description || "",
@@ -610,6 +679,46 @@ export async function getInvoices(filters?: {
   status?: string;
   sort?: string;
 }): Promise<Invoice[]> {
+  const prisma = await getPrismaClient();
+  if (prisma) {
+    try {
+      const records = await prisma.invoice.findMany({
+        include: { items: { orderBy: { order: "asc" } } },
+        orderBy: { date: "desc" },
+      });
+      if (records && records.length > 0) {
+        let list = records.map(mapPrismaInvoice);
+        if (filters?.query) {
+          const q = filters.query.toLowerCase().trim();
+          list = list.filter(
+            (inv: Invoice) =>
+              inv.number.toLowerCase().includes(q) ||
+              inv.clientName.toLowerCase().includes(q) ||
+              (inv.clientCompany && inv.clientCompany.toLowerCase().includes(q)) ||
+              (inv.clientEmail && inv.clientEmail.toLowerCase().includes(q))
+          );
+        }
+        if (filters?.status && filters.status !== "All") {
+          list = list.filter((inv: Invoice) => inv.status === filters.status);
+        }
+        const sort = filters?.sort || "date-desc";
+        list.sort((a: Invoice, b: Invoice) => {
+          if (sort === "date-desc") return new Date(b.date).getTime() - new Date(a.date).getTime();
+          if (sort === "date-asc") return new Date(a.date).getTime() - new Date(b.date).getTime();
+          if (sort === "due-asc") return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          if (sort === "amount-desc") return b.grandTotal - a.grandTotal;
+          if (sort === "amount-asc") return a.grandTotal - b.grandTotal;
+          if (sort === "number-desc") return b.number.localeCompare(a.number);
+          if (sort === "number-asc") return a.number.localeCompare(b.number);
+          return 0;
+        });
+        return list;
+      }
+    } catch (e) {
+      console.warn("Prisma getInvoices failed, falling back to JSON store", e);
+    }
+  }
+
   const store = await readStore();
   let list = [...store.invoices];
 
@@ -651,6 +760,17 @@ export async function getInvoices(filters?: {
 }
 
 export async function getInvoiceById(id: string): Promise<Invoice | null> {
+  const prisma = await getPrismaClient();
+  if (prisma) {
+    try {
+      const rec = await prisma.invoice.findUnique({
+        where: { id },
+        include: { items: { orderBy: { order: "asc" } } },
+      });
+      if (rec) return mapPrismaInvoice(rec);
+    } catch {}
+  }
+
   const invoices = await getInvoices();
   const found = invoices.find((inv) => inv.id === id);
   if (!found) return null;
@@ -658,11 +778,35 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
 }
 
 export async function getInvoiceByNumber(number: string): Promise<Invoice | null> {
+  const prisma = await getPrismaClient();
+  if (prisma) {
+    try {
+      const rec = await prisma.invoice.findUnique({
+        where: { number },
+        include: { items: { orderBy: { order: "asc" } } },
+      });
+      if (rec) return mapPrismaInvoice(rec);
+    } catch {}
+  }
+
   const invoices = await getInvoices();
   return invoices.find((inv) => inv.number.toLowerCase() === number.toLowerCase()) || null;
 }
 
 export async function getInvoiceByPublicToken(token: string): Promise<Invoice | null> {
+  const prisma = await getPrismaClient();
+  if (prisma) {
+    try {
+      const rec = await prisma.invoice.findUnique({
+        where: { publicToken: token },
+        include: { items: { orderBy: { order: "asc" } } },
+      });
+      if (rec && rec.publicLinkEnabled) {
+        return mapPrismaInvoice(rec);
+      }
+    } catch {}
+  }
+
   const invoices = await getInvoices();
   const found = invoices.find((inv) => inv.publicToken === token);
   if (!found || !found.publicLinkEnabled) return null;
@@ -716,6 +860,73 @@ export async function createInvoice(data: Partial<Invoice>): Promise<Invoice> {
     updatedAt: now,
     items: totals.items,
   };
+
+  const prisma = await getPrismaClient();
+  if (prisma) {
+    try {
+      const created = await prisma.invoice.create({
+        data: {
+          id: invoice.id,
+          number: invoice.number,
+          clientId: invoice.clientId || null,
+          clientName: invoice.clientName,
+          clientCompany: invoice.clientCompany,
+          clientEmail: invoice.clientEmail,
+          clientPhone: invoice.clientPhone,
+          clientAddress: invoice.clientAddress,
+          clientCountry: invoice.clientCountry,
+          date: new Date(invoice.date),
+          dueDate: new Date(invoice.dueDate),
+          currency: invoice.currency,
+          status: invoice.status,
+          paymentInstructions: invoice.paymentInstructions,
+          footerNotes: invoice.footerNotes,
+          subtotal: invoice.subtotal,
+          discountType: invoice.discountType,
+          discountValue: invoice.discountValue,
+          discountAmount: invoice.discountAmount,
+          taxEnabled: invoice.taxEnabled,
+          taxRate: invoice.taxRate,
+          taxAmount: invoice.taxAmount,
+          extraCharges: invoice.extraCharges,
+          extraChargesLabel: invoice.extraChargesLabel,
+          grandTotal: invoice.grandTotal,
+          advancePaid: invoice.advancePaid,
+          balanceDue: invoice.balanceDue,
+          publicToken: invoice.publicToken!,
+          publicLinkEnabled: invoice.publicLinkEnabled,
+          sentAt: invoice.sentAt ? new Date(invoice.sentAt) : null,
+          items: {
+            create: invoice.items.map((it, idx) => ({
+              name: it.name,
+              description: it.description || "",
+              quantity: it.quantity,
+              unit: it.unit || "video",
+              unitPrice: it.unitPrice,
+              total: it.total,
+              order: it.order ?? idx,
+            })),
+          },
+        },
+        include: { items: { orderBy: { order: "asc" } } },
+      });
+
+      if (invoice.clientName) {
+        await saveClient({
+          name: invoice.clientName,
+          company: invoice.clientCompany,
+          email: invoice.clientEmail,
+          phone: invoice.clientPhone,
+          address: invoice.clientAddress,
+          country: invoice.clientCountry,
+        });
+      }
+
+      return mapPrismaInvoice(created);
+    } catch (err) {
+      console.warn("Prisma createInvoice failed, falling back to JSON store", err);
+    }
+  }
 
   const store = await readStore();
   store.invoices.unshift(invoice);
@@ -793,6 +1004,67 @@ export async function updateInvoice(
     items: totals.items,
   };
 
+  const prisma = await getPrismaClient();
+  if (prisma) {
+    try {
+      await prisma.$transaction([
+        prisma.invoiceItem.deleteMany({ where: { invoiceId: id } }),
+        prisma.invoice.update({
+          where: { id },
+          data: {
+            number: updated.number,
+            clientId: updated.clientId || null,
+            clientName: updated.clientName,
+            clientCompany: updated.clientCompany,
+            clientEmail: updated.clientEmail,
+            clientPhone: updated.clientPhone,
+            clientAddress: updated.clientAddress,
+            clientCountry: updated.clientCountry,
+            date: new Date(updated.date),
+            dueDate: new Date(updated.dueDate),
+            currency: updated.currency,
+            status: updated.status,
+            paymentInstructions: updated.paymentInstructions,
+            footerNotes: updated.footerNotes,
+            subtotal: updated.subtotal,
+            discountType: updated.discountType,
+            discountValue: updated.discountValue,
+            discountAmount: updated.discountAmount,
+            taxEnabled: updated.taxEnabled,
+            taxRate: updated.taxRate,
+            taxAmount: updated.taxAmount,
+            extraCharges: updated.extraCharges,
+            extraChargesLabel: updated.extraChargesLabel,
+            grandTotal: updated.grandTotal,
+            advancePaid: updated.advancePaid,
+            balanceDue: updated.balanceDue,
+            publicToken: updated.publicToken,
+            publicLinkEnabled: updated.publicLinkEnabled,
+            sentAt: updated.sentAt ? new Date(updated.sentAt) : null,
+            items: {
+              create: updated.items.map((it, idx) => ({
+                name: it.name,
+                description: it.description || "",
+                quantity: it.quantity,
+                unit: it.unit || "video",
+                unitPrice: it.unitPrice,
+                total: it.total,
+                order: it.order ?? idx,
+              })),
+            },
+          },
+        }),
+      ]);
+      const fresh = await prisma.invoice.findUnique({
+        where: { id },
+        include: { items: { orderBy: { order: "asc" } } },
+      });
+      if (fresh) return mapPrismaInvoice(fresh);
+    } catch (err) {
+      console.warn("Prisma updateInvoice failed, falling back to JSON store", err);
+    }
+  }
+
   const store = await readStore();
   const idx = store.invoices.findIndex((inv) => inv.id === id);
   if (idx >= 0) {
@@ -806,6 +1078,14 @@ export async function updateInvoice(
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
+  const prisma = await getPrismaClient();
+  if (prisma) {
+    try {
+      await prisma.invoice.delete({ where: { id } });
+    } catch (err) {
+      console.warn("Prisma deleteInvoice failed", err);
+    }
+  }
   const store = await readStore();
   store.invoices = store.invoices.filter((inv) => inv.id !== id);
   await writeStore(store);

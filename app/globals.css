@@ -44,9 +44,29 @@ body{background:#080808;color:#F5F5F5;overflow-x:hidden}
   animation: playhead-sweep 6s linear infinite;
 }
 
+/* Date input calendar picker indicator */
+input[type="date"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2);
+  opacity: 0.85;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
 @media(prefers-reduced-motion:reduce){
   .grain{animation:none}
   *{scroll-behavior:auto!important}
   .playhead,
   .playhead-runner{animation:none;left:35%;transform:translateX(0)}
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    transition: none;
+  }
 }

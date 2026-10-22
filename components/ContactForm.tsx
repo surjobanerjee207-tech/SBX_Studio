@@ -144,7 +144,7 @@ export function ContactForm() {
               setDeadlineErr(validateDeadline(e.target.value));
             }
           }}
-          className={`${f} [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 ${
+          className={`${f} [color-scheme:dark] cursor-pointer ${
             deadlineErr ? "!border-red" : ""
           }`}
         />

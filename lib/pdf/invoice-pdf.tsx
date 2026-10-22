@@ -109,58 +109,84 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 20,
-    paddingBottom: 15,
+    marginBottom: 18,
+    paddingBottom: 14,
     borderBottomWidth: 1.5,
     borderBottomColor: RED,
   },
+  headerLeft: {
+    width: "58%",
+    flexDirection: "column",
+    alignItems: "flex-start",
+  },
   studioTitle: {
     fontSize: 18,
+    lineHeight: 1.2,
     fontWeight: "bold",
     color: DARK,
     letterSpacing: 0.5,
+    marginBottom: 4,
   },
   studioSubtitle: {
     fontSize: 8,
+    lineHeight: 1.3,
     color: RED,
     fontWeight: "bold",
-    letterSpacing: 1,
-    marginTop: 2,
+    letterSpacing: 0.8,
+    marginTop: 4,
+    marginBottom: 5,
     textTransform: "uppercase",
   },
   studioDetails: {
-    fontSize: 8,
-    color: MUTED,
-    marginTop: 4,
-    lineHeight: 1.3,
+    flexDirection: "column",
+    alignItems: "flex-start",
+    marginTop: 2,
   },
-  invoiceMetaRight: {
+  studioText: {
+    fontSize: 8,
+    lineHeight: 1.35,
+    color: MUTED,
+    marginTop: 1.5,
+  },
+  headerRight: {
+    width: "38%",
+    flexShrink: 0,
+    flexDirection: "column",
     alignItems: "flex-end",
   },
   invoiceTitle: {
     fontSize: 22,
+    lineHeight: 1.2,
     fontWeight: "bold",
     color: RED,
     letterSpacing: 1,
+    marginBottom: 4,
+    textAlign: "right",
   },
   invoiceNumber: {
     fontSize: 11,
+    lineHeight: 1.3,
     fontWeight: "bold",
     color: DARK,
-    marginTop: 2,
+    marginBottom: 5,
+    textAlign: "right",
   },
   metaRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
+    alignItems: "center",
     gap: 6,
-    marginTop: 3,
-    fontSize: 8,
+    marginTop: 2,
   },
   metaLabel: {
+    fontSize: 8,
+    lineHeight: 1.3,
     color: MUTED,
     fontWeight: "bold",
   },
   metaValue: {
+    fontSize: 8,
+    lineHeight: 1.3,
     color: DARK,
     fontWeight: "bold",
   },
@@ -433,24 +459,24 @@ export function InvoicePdfDocument({ invoice, settings, qrDataUrl }: InvoicePdfP
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             <Text style={styles.studioTitle}>{settings.studioName || "SBX Studio"}</Text>
             <Text style={styles.studioSubtitle}>Video Editing & Visual Storytelling</Text>
             <View style={styles.studioDetails}>
               {settings.address ? (
-                <Text>
+                <Text style={styles.studioText}>
                   {settings.address}
                   {settings.country && !settings.address.toLowerCase().includes(settings.country.toLowerCase())
                     ? ", " + settings.country
                     : ""}
                 </Text>
               ) : null}
-              {settings.email ? <Text>Email: {settings.email}</Text> : null}
-              {settings.phone ? <Text>Phone: {settings.phone}</Text> : null}
+              {settings.email ? <Text style={styles.studioText}>Email: {settings.email}</Text> : null}
+              {settings.phone ? <Text style={styles.studioText}>Phone: {settings.phone}</Text> : null}
             </View>
           </View>
 
-          <View style={styles.invoiceMetaRight}>
+          <View style={styles.headerRight}>
             <Text style={styles.invoiceTitle}>INVOICE</Text>
             <Text style={styles.invoiceNumber}>{invoice.number}</Text>
             <View style={styles.metaRow}>

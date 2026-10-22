@@ -1,7 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Fraunces, Inter_Tight } from "next/font/google";
+import { PublicChrome } from "@/components/PublicChrome";
 
 const displayFont = Fraunces({
   subsets: ["latin"],
@@ -39,62 +39,7 @@ export default function RootLayout({
     <html lang="en" className={`${displayFont.variable} ${sansFont.variable}`}>
       <body className="font-sans">
         <div className="grain" aria-hidden />
-        <header className="fixed top-0 inset-x-0 z-40 backdrop-blur bg-ink/70">
-          <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap font-semibold">
-              <img src="/icon.svg" alt="" width={28} height={28} className="h-7 w-7" />
-              SBX_Studio
-            </Link>
-
-            <nav aria-label="Main" className="flex items-center gap-3 sm:gap-5 text-sm text-mute">
-              <Link href="/" className="hidden md:inline hover:text-bone">Home</Link>
-              <Link href="/#work" className="hidden md:inline hover:text-bone">Work</Link>
-              {process.env.NODE_ENV === "development" && (
-                <Link href="/studio" className="hidden md:inline border border-white/20 px-3 py-1 hover:text-bone">Studio</Link>
-              )}
-              <Link
-                href="/contact"
-                className="shrink-0 whitespace-nowrap bg-red px-3 py-2 text-bone transition-colors hover:bg-cherry sm:px-4"
-              >
-                <span className="sm:hidden">Let&apos;s Talk</span>
-                <span className="hidden sm:inline">Let&apos;s Work Together</span>
-              </Link>
-            </nav>
-          </div>
-        </header>
-        <main>{children}</main>
-        <footer className="px-6 py-12 text-mute text-sm border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <p className="text-bone font-display text-2xl flex items-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 64 64"
-                className="w-6 h-6 shrink-0"
-                aria-hidden="true"
-              >
-                <rect width="64" height="64" rx="14" fill="#080808" />
-                <rect x="10" y="13" width="18" height="10" rx="2" fill="#3a3a3a" />
-                <rect x="32" y="13" width="22" height="10" rx="2" fill="#3a3a3a" />
-                <rect x="10" y="27" width="28" height="10" rx="2" fill="#E50914" />
-                <rect x="42" y="27" width="12" height="10" rx="2" fill="#3a3a3a" />
-                <rect x="10" y="41" width="14" height="10" rx="2" fill="#3a3a3a" />
-                <rect x="28" y="41" width="26" height="10" rx="2" fill="#3a3a3a" />
-                <rect x="34" y="7" width="3" height="50" rx="1.5" fill="#F5F5F5" />
-              </svg>
-              <span>SBX_Studio</span>
-            </p>
-            <p className="mt-1">Crafting Stories, Frame by Frame.</p>
-          </div>
-          <div className="text-right sm:text-right">
-            <p>© {new Date().getFullYear()} SBX_Studio</p>
-            <Link
-              href="/admin"
-              className="text-xs text-mute/70 hover:text-bone underline underline-offset-4 mt-1 inline-block"
-            >
-              Manage Portfolio (Studio)
-            </Link>
-          </div>
-        </footer>
+        <PublicChrome>{children}</PublicChrome>
       </body>
     </html>
   );

@@ -3,18 +3,130 @@ generator client {
 }
 
 datasource db {
- provider = "postgresql"
- url = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
+
 model ContactInquiry {
- id String @id @default(cuid())
- name String @db.VarChar(80)
- email String @db.VarChar(120)
- projectType String @db.VarChar(40)
- budget String? @db.VarChar(40)
- description String @db.VarChar(2000)
- deadline DateTime?
- status String @default("NEW")
- createdAt DateTime @default(now())
- @@index([status, createdAt])
+  id          String    @id @default(cuid())
+  name        String    @db.VarChar(80)
+  email       String    @db.VarChar(120)
+  projectType String    @db.VarChar(40)
+  budget      String?   @db.VarChar(40)
+  description String    @db.VarChar(2000)
+  deadline    DateTime?
+  status      String    @default("NEW")
+  createdAt   DateTime  @default(now())
+
+  @@index([status, createdAt])
+}
+
+model StudioSettings {
+  id                   String   @id @default("default")
+  studioName           String   @default("SBX Studio")
+  logoUrl              String?  @db.Text
+  email                String?
+  phone                String?
+  address              String?  @db.Text
+  country              String?  @default("India")
+  upiId                String?
+  bankName             String?
+  bankAccountName      String?
+  bankAccountNumber    String?
+  bankIfsc             String?
+  bankSwift            String?
+  footerMessage        String?  @db.Text
+  defaultCurrency      String   @default("INR")
+  defaultTaxRate       Int      @default(0)
+  defaultTaxEnabled    Boolean  @default(false)
+  defaultPaymentTerms  String?  @db.Text
+  adminPasswordHash    String?
+  adminPasswordSalt    String?
+  updatedAt            DateTime @updatedAt
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  company   String?
+  email     String?
+  phone     String?
+  address   String?   @db.Text
+  country   String?
+  notes     String?   @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  invoices  Invoice[]
+
+  @@index([name])
+}
+
+model ServicePreset {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  defaultUnit String   @default("video")
+  defaultPrice Int     @default(0)
+  currency    String   @default("INR")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([order])
+}
+
+model Invoice {
+  id                  String        @id @default(cuid())
+  number              String        @unique
+  clientId            String?
+  client              Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientName          String
+  clientCompany       String?
+  clientEmail         String?
+  clientPhone         String?
+  clientAddress       String?       @db.Text
+  clientCountry       String?
+  date                DateTime      @default(now())
+  dueDate             DateTime
+  currency            String        @default("INR")
+  status              String        @default("Draft")
+  paymentInstructions String?       @db.Text
+  footerNotes         String?       @db.Text
+  subtotal            Int           @default(0)
+  discountType        String        @default("percent")
+  discountValue       Int           @default(0)
+  discountAmount      Int           @default(0)
+  taxEnabled          Boolean       @default(false)
+  taxRate             Int           @default(0)
+  taxAmount           Int           @default(0)
+  extraCharges        Int           @default(0)
+  extraChargesLabel   String?
+  grandTotal          Int           @default(0)
+  advancePaid         Int           @default(0)
+  balanceDue          Int           @default(0)
+  publicToken         String        @unique @default(cuid())
+  publicLinkEnabled   Boolean       @default(true)
+  sentAt              DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  items               InvoiceItem[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  name        String
+  description String?  @db.Text
+  quantity    Int      @default(1)
+  unit        String   @default("video")
+  unitPrice   Int      @default(0)
+  total       Int      @default(0)
+  order       Int      @default(0)
+
+  @@index([invoiceId, order])
 }

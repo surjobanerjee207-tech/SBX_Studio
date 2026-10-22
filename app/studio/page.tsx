@@ -1,1 +1,1 @@
-export { default } from "../admin/page";
+export { PortfolioStudio as default } from "@/components/PortfolioStudio";

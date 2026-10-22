@@ -1,568 +1,329 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Project, parseVideoUrl } from "@/lib/projects";
-import { ThumbnailUploader } from "@/components/ThumbnailUploader";
+import { Invoice } from "@/lib/types/invoice";
+import { formatMoney } from "@/lib/invoice-calc";
+import { DashboardStats } from "@/lib/invoice-storage";
+import { PortfolioStudio } from "@/components/PortfolioStudio";
 
-export default function AdminPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+export default function AdminDashboardPage() {
+  const [adminView, setAdminView] = useState<"invoices" | "portfolio">("invoices");
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [notification, setNotification] = useState<string | null>(null);
-
-  // Form modal state
-  const [isEditing, setIsEditing] = useState(false);
-  const [editSlug, setEditSlug] = useState<string | null>(null);
-
-  // Form fields
-  const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Event Highlights / Cinematic Editing");
-  const [description, setDescription] = useState("");
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [rawVideoUrl, setRawVideoUrl] = useState("");
-  const [customThumbnail, setCustomThumbnail] = useState("");
-  const [role, setRole] = useState("Lead Video Editor & Colorist");
-  const [toolsStr, setToolsStr] = useState("Premiere Pro, DaVinci Resolve");
-  const [saving, setSaving] = useState(false);
-
-  // Live video parse calculation
-  const parsed = parseVideoUrl(rawVideoUrl);
-  const effectiveThumbnail = customThumbnail.trim() || parsed.autoThumbnail || "";
-
-  const fetchProjects = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/projects");
-      const data = await res.json();
-      if (data.projects) {
-        setProjects(data.projects);
-      }
-    } catch (err: any) {
-      setError("Failed to load projects: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    fetchProjects();
+    async function loadDashboard() {
+      try {
+        setLoading(true);
+        const [statsRes, invRes] = await Promise.all([
+          fetch("/api/admin/dashboard"),
+          fetch("/api/admin/invoices?sort=date-desc"),
+        ]);
+        const statsData = await statsRes.json();
+        const invData = await invRes.json();
+
+        if (statsData.stats) setStats(statsData.stats);
+        if (invData.invoices) setRecentInvoices(invData.invoices.slice(0, 5));
+      } catch (err) {
+        console.error("Dashboard error", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDashboard();
   }, []);
 
-  useEffect(() => {
-    if (isEditing) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isEditing]);
-
-  const showNotify = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 4000);
-  };
-
-  const openNewForm = () => {
-    setEditSlug(null);
-    setTitle("");
-    setCategory("Cinematic Film");
-    setDescription("");
-    setYear(new Date().getFullYear());
-    setRawVideoUrl("");
-    setCustomThumbnail("");
-    setRole("Lead Video Editor");
-    setToolsStr("Premiere Pro, DaVinci Resolve");
-    setIsEditing(true);
-  };
-
-  const openEditForm = (p: Project) => {
-    setEditSlug(p.slug);
-    setTitle(p.title);
-    setCategory(p.category);
-    setDescription(p.description);
-    setYear(p.year);
-    // Reconstruct full URL if it's youtube or vimeo id
-    if (p.provider === "youtube" && !p.videoUrl.includes("http")) {
-      setRawVideoUrl(`https://www.youtube.com/watch?v=${p.videoUrl}`);
-    } else if (p.provider === "vimeo" && !p.videoUrl.includes("http")) {
-      setRawVideoUrl(`https://vimeo.com/${p.videoUrl}`);
-    } else if (p.provider === "googledrive" && !p.videoUrl.includes("http")) {
-      setRawVideoUrl(`https://drive.google.com/file/d/${p.videoUrl}/view`);
-    } else {
-      setRawVideoUrl(p.videoUrl);
-    }
-    setCustomThumbnail(
-      p.thumbnail.startsWith("data:image/svg") ||
-        p.thumbnail.includes("drive.google.com")
-        ? ""
-        : p.thumbnail
+  if (loading || !stats) {
+    return (
+      <div className="py-24 text-center">
+        <div className="w-8 h-8 border-2 border-red border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-xs text-secondary">Loading admin suite...</p>
+      </div>
     );
-    setRole(p.role);
-    setToolsStr(p.tools.join(", "));
-    setIsEditing(true);
-  };
+  }
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      alert("Please enter a title for the video project.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const payload = {
-        title: title.trim(),
-        category: category.trim(),
-        description: description.trim(),
-        year: Number(year),
-        videoUrl: rawVideoUrl.trim(),
-        thumbnail: customThumbnail.trim(),
-        role: role.trim(),
-        tools: toolsStr
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-      };
-
-      let res;
-      if (editSlug) {
-        res = await fetch("/api/projects", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: editSlug, ...payload }),
-        });
-      } else {
-        res = await fetch("/api/projects", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      }
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Save failed");
-
-      setProjects(data.projects);
-      setIsEditing(false);
-      showNotify(
-        editSlug
-          ? "Project updated successfully!"
-          : "New project published to website!"
-      );
-    } catch (err: any) {
-      alert("Error saving project: " + err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (slug: string, projectTitle: string) => {
-    if (!confirm(`Are you sure you want to delete "${projectTitle}"?`)) return;
-
-    try {
-      const res = await fetch(`/api/projects?slug=${encodeURIComponent(slug)}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Delete failed");
-      setProjects(data.projects);
-      showNotify(`"${projectTitle}" was deleted.`);
-    } catch (err: any) {
-      alert("Error deleting: " + err.message);
-    }
-  };
-
-  const moveProject = async (index: number, direction: "up" | "down") => {
-    const targetIdx = direction === "up" ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= projects.length) return;
-
-    const reordered = [...projects];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIdx, 0, moved);
-
-    setProjects(reordered);
-
-    try {
-      await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "reorder",
-          slugs: reordered.map((p) => p.slug),
-        }),
-      });
-      showNotify("Project order updated!");
-    } catch (err: any) {
-      alert("Failed to save reordering: " + err.message);
-    }
-  };
-
-  const copyGitCommands = () => {
-    const cmd = `git add data/projects.json && git commit -m "Update portfolio videos" && git push`;
-    navigator.clipboard.writeText(cmd);
-    showNotify("Git push command copied to clipboard!");
-  };
-
-  const copyJsonBackup = () => {
-    navigator.clipboard.writeText(JSON.stringify(projects, null, 2));
-    showNotify("Projects JSON copied to clipboard!");
-  };
+  const currency = (stats.currency as any) || "INR";
 
   return (
-    <div className="min-h-screen pt-28 pb-24 px-6 max-w-6xl mx-auto">
-      {/* Top Banner & Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/10 pb-8">
-        <div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6">
+      {/* Top Suite View Selector (Invoices vs Portfolio Videos) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+        <div className="flex items-center gap-1.5 p-1 bg-card border border-white/15 rounded-xl self-start sm:self-auto">
+          <button
+            onClick={() => setAdminView("invoices")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              adminView === "invoices"
+                ? "bg-red text-white shadow-md shadow-red/25"
+                : "text-secondary hover:text-white"
+            }`}
+          >
+            🧾 Invoicing & Revenue
+          </button>
+          <button
+            onClick={() => setAdminView("portfolio")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              adminView === "portfolio"
+                ? "bg-red text-white shadow-md shadow-red/25"
+                : "text-secondary hover:text-white"
+            }`}
+          >
+            🎬 Portfolio Videos CMS
+          </button>
+        </div>
+
+        {adminView === "invoices" && (
           <div className="flex items-center gap-3">
-            <h1 className="font-display text-4xl md:text-5xl text-bone">
-              Portfolio Studio
-            </h1>
-            <span className="bg-red/20 text-red text-xs px-2.5 py-1 border border-red/40 font-mono uppercase tracking-wider">
-              Live CMS
-            </span>
-          </div>
-          <p className="text-mute text-sm mt-2 max-w-xl">
-            Directly add, edit, or publish videos on your portfolio. Paste any YouTube, Vimeo, or MP4 link—thumbnails and embeds are generated automatically!
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={openNewForm}
-            className="bg-red hover:bg-cherry text-bone px-5 py-2.5 transition-colors font-medium flex items-center gap-2 shadow-lg"
-          >
-            <span className="text-lg leading-none">+</span>
-            <span>Add New Video</span>
-          </button>
-          <Link
-            href="/"
-            className="border border-white/20 hover:border-bone px-4 py-2.5 text-sm transition-colors"
-          >
-            View Live Site ↗
-          </Link>
-        </div>
-      </div>
-
-      {/* Notification Toast */}
-      {notification && (
-        <div className="mt-6 bg-red/15 border border-red text-bone px-4 py-3 text-sm flex items-center justify-between animate-fade-in">
-          <span>✓ {notification}</span>
-          <button
-            onClick={() => setNotification(null)}
-            className="text-mute hover:text-bone text-xs"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* Direct Push Helper Banner */}
-      <div className="mt-8 bg-panel border border-white/10 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold text-bone flex items-center gap-2">
-            <span>Direct Push to Production</span>
-          </h2>
-          <p className="text-xs text-mute mt-1">
-            All your updates are automatically saved to <code className="bg-ink px-1.5 py-0.5 border border-white/10 text-bone">data/projects.json</code>. Run this command in your terminal whenever you want to push to GitHub / Vercel:
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={copyGitCommands}
-            className="bg-ink hover:bg-white/5 border border-white/20 text-xs px-3.5 py-2 text-bone transition-colors font-mono whitespace-nowrap"
-          >
-            📋 Copy Git Push Command
-          </button>
-          <button
-            onClick={copyJsonBackup}
-            className="bg-ink hover:bg-white/5 border border-white/20 text-xs px-3.5 py-2 text-mute hover:text-bone transition-colors whitespace-nowrap"
-          >
-            Export JSON
-          </button>
-        </div>
-      </div>
-
-      {/* Project Count Stats */}
-      <div className="mt-8 flex items-center justify-between text-xs text-mute">
-        <p>
-          Showing <span className="text-bone font-medium">{projects.length}</span> published projects
-        </p>
-        <p>Tip: Use ↑ and ↓ to arrange how videos appear on the homepage</p>
-      </div>
-
-      {/* Project List */}
-      {loading ? (
-        <div className="py-20 text-center text-mute text-sm">
-          Loading portfolio projects...
-        </div>
-      ) : projects.length === 0 ? (
-        <div className="mt-6 p-12 text-center bg-panel border border-white/10">
-          <p className="text-bone text-lg font-display">No videos yet</p>
-          <p className="text-mute text-sm mt-1">
-            Click &quot;Add New Video&quot; above to publish your first video project!
-          </p>
-          <button
-            onClick={openNewForm}
-            className="mt-6 bg-red px-6 py-2.5 text-bone text-sm hover:bg-cherry"
-          >
-            + Add First Project
-          </button>
-        </div>
-      ) : (
-        <div className="mt-4 space-y-4">
-          {projects.map((p, idx) => (
-            <article
-              key={p.slug}
-              className="flex flex-col sm:flex-row gap-4 border border-white/10 p-4 bg-panel hover:border-white/20 transition-colors"
+            <Link
+              href="/admin/invoices/new"
+              className="bg-red hover:bg-cherry text-white px-5 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-lg shadow-red/25 hover:shadow-red/40 flex items-center gap-2"
             >
-              <img
-                src={p.thumbnail}
-                alt={p.title}
-                className="w-full sm:w-60 aspect-video object-cover shrink-0 bg-black border border-white/10"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs text-mute break-words">
-                  {p.category} · {p.year}
-                </p>
-                <h3 className="font-display text-2xl break-words text-bone mt-0.5">
-                  {p.title}
-                </h3>
-                <p className="text-mute break-words mt-1">
-                  {p.description || "No description provided."}
-                </p>
-                <p className="font-mono text-xs text-mute break-all mt-1">
-                  Video: {p.provider} ({p.videoUrl || "none"})
-                </p>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <div className="flex items-center border border-white/10">
-                    <button
-                      onClick={() => moveProject(idx, "up")}
-                      disabled={idx === 0}
-                      title="Move higher on homepage"
-                      className="px-2.5 py-1 text-xs text-mute hover:text-bone disabled:opacity-30 disabled:hover:text-mute hover:bg-white/5"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={() => moveProject(idx, "down")}
-                      disabled={idx === projects.length - 1}
-                      title="Move lower on homepage"
-                      className="px-2.5 py-1 text-xs text-mute hover:text-bone disabled:opacity-30 disabled:hover:text-mute hover:bg-white/5 border-l border-white/10"
-                    >
-                      ↓
-                    </button>
-                  </div>
+              <span>+</span>
+              <span>Create Invoice</span>
+            </Link>
+          </div>
+        )}
+      </div>
 
-                  <Link
-                    href={`/work/${p.slug}`}
-                    target="_blank"
-                    className="border border-white/20 hover:border-bone text-xs px-3 py-1.5 text-mute hover:text-bone transition-colors"
-                  >
-                    Preview
-                  </Link>
-
-                  <button
-                    onClick={() => openEditForm(p)}
-                    className="bg-white/10 hover:bg-white/20 text-bone text-xs px-3 py-1.5 transition-colors font-medium"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    onClick={() => handleDelete(p.slug, p.title)}
-                    className="border border-red/40 hover:bg-red/20 text-red text-xs px-3 py-1.5 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+      {/* RENDER PORTFOLIO CMS VIEW */}
+      {adminView === "portfolio" && (
+        <div className="animate-fade-in -mt-6">
+          <PortfolioStudio />
         </div>
       )}
 
-      {/* Edit / Create Modal */}
-      {isEditing && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm p-4 sm:p-6 md:p-8 flex justify-center items-start">
-          <div className="bg-panel border border-white/20 w-full max-w-2xl p-6 md:p-8 my-6 sm:my-10 relative shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
-              <h2 className="font-display text-2xl text-bone">
-                {editSlug ? "Edit Video Project" : "Publish New Video Project"}
-              </h2>
-              <button
-                onClick={() => setIsEditing(false)}
-                className="text-mute hover:text-bone text-xl leading-none"
-              >
-                ✕
-              </button>
+      {/* RENDER INVOICING DASHBOARD VIEW */}
+      {adminView === "invoices" && (
+        <div className="space-y-8 animate-fade-in">
+          {/* Header Description */}
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="font-display text-3xl font-bold text-white tracking-tight">
+                Invoicing Overview
+              </h1>
+              <span className="bg-red/20 text-red text-xs px-2.5 py-0.5 border border-red/30 rounded-full font-mono uppercase tracking-wider">
+                Live
+              </span>
+            </div>
+            <p className="text-secondary text-xs mt-1">
+              Real-time revenue, client payments, and invoice status metrics.
+            </p>
+          </div>
+
+          {/* KPI Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Invoiced */}
+            <div className="bg-card border border-white/10 rounded-2xl p-5 shadow-xl relative overflow-hidden group hover:border-white/20 transition-all">
+              <div className="flex items-center justify-between text-secondary text-xs mb-3">
+                <span className="uppercase tracking-wider font-semibold">Total Invoiced</span>
+                <span className="w-7 h-7 rounded-lg bg-white/5 text-white grid place-items-center">
+                  ₹
+                </span>
+              </div>
+              <p className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                {formatMoney(stats.totalInvoiced, currency)}
+              </p>
+              <p className="text-[11px] text-mute mt-2">
+                Across {stats.totalInvoices} project invoice{stats.totalInvoices === 1 ? "" : "s"}
+              </p>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-6">
-              {/* Video URL Input with Auto Detection */}
+            {/* Received */}
+            <div className="bg-card border border-white/10 rounded-2xl p-5 shadow-xl relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+              <div className="flex items-center justify-between text-emerald-400 text-xs mb-3">
+                <span className="uppercase tracking-wider font-semibold">Total Received</span>
+                <span className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 grid place-items-center">
+                  ✓
+                </span>
+              </div>
+              <p className="font-display text-2xl sm:text-3xl font-bold text-emerald-400 tracking-tight">
+                {formatMoney(stats.totalReceived, currency)}
+              </p>
+              <p className="text-[11px] text-mute mt-2">
+                Advances and paid balances collected
+              </p>
+            </div>
+
+            {/* Outstanding */}
+            <div className="bg-card border border-white/10 rounded-2xl p-5 shadow-xl relative overflow-hidden group hover:border-amber-500/30 transition-all">
+              <div className="flex items-center justify-between text-gold text-xs mb-3">
+                <span className="uppercase tracking-wider font-semibold">Outstanding Balance</span>
+                <span className="w-7 h-7 rounded-lg bg-amber-500/10 text-gold grid place-items-center">
+                  ⌛
+                </span>
+              </div>
+              <p className="font-display text-2xl sm:text-3xl font-bold text-gold tracking-tight">
+                {formatMoney(stats.totalOutstanding, currency)}
+              </p>
+              <p className="text-[11px] text-mute mt-2">
+                Pending client payment
+              </p>
+            </div>
+
+            {/* Overdue */}
+            <div className="bg-card border border-white/10 rounded-2xl p-5 shadow-xl relative overflow-hidden group hover:border-red/40 transition-all">
+              <div className="flex items-center justify-between text-red text-xs mb-3">
+                <span className="uppercase tracking-wider font-semibold">Overdue Invoices</span>
+                <span className="w-7 h-7 rounded-lg bg-red/10 text-red grid place-items-center">
+                  !
+                </span>
+              </div>
+              <p className="font-display text-2xl sm:text-3xl font-bold text-red tracking-tight">
+                {formatMoney(stats.totalOverdue, currency)}
+              </p>
+              <p className="text-[11px] text-mute mt-2">
+                {stats.countOverdue} invoice{stats.countOverdue === 1 ? "" : "s"} past due date
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Access Shortcuts */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Link
+              href="/admin/invoices/new"
+              className="p-4 rounded-xl bg-card border border-white/10 hover:border-red hover:bg-white/[0.02] transition-all text-left group"
+            >
+              <p className="text-sm font-semibold text-white group-hover:text-red transition-colors flex items-center justify-between">
+                <span>+ New Invoice</span>
+                <span className="text-xs text-mute group-hover:translate-x-0.5 transition-transform">→</span>
+              </p>
+              <p className="text-[11px] text-secondary mt-1">Generate PDF & bill client</p>
+            </Link>
+
+            <Link
+              href="/admin/clients"
+              className="p-4 rounded-xl bg-card border border-white/10 hover:border-white/30 hover:bg-white/[0.02] transition-all text-left group"
+            >
+              <p className="text-sm font-semibold text-white transition-colors flex items-center justify-between">
+                <span>Clients CRM</span>
+                <span className="text-xs text-mute group-hover:translate-x-0.5 transition-transform">→</span>
+              </p>
+              <p className="text-[11px] text-secondary mt-1">Manage client records</p>
+            </Link>
+
+            <Link
+              href="/admin/services"
+              className="p-4 rounded-xl bg-card border border-white/10 hover:border-white/30 hover:bg-white/[0.02] transition-all text-left group"
+            >
+              <p className="text-sm font-semibold text-white transition-colors flex items-center justify-between">
+                <span>Services & Rates</span>
+                <span className="text-xs text-mute group-hover:translate-x-0.5 transition-transform">→</span>
+              </p>
+              <p className="text-[11px] text-secondary mt-1">Custom preset pricing</p>
+            </Link>
+
+            <Link
+              href="/admin/settings"
+              className="p-4 rounded-xl bg-card border border-white/10 hover:border-white/30 hover:bg-white/[0.02] transition-all text-left group"
+            >
+              <p className="text-sm font-semibold text-white transition-colors flex items-center justify-between">
+                <span>Studio Settings</span>
+                <span className="text-xs text-mute group-hover:translate-x-0.5 transition-transform">→</span>
+              </p>
+              <p className="text-[11px] text-secondary mt-1">UPI, Bank & branding</p>
+            </Link>
+          </div>
+
+          {/* Recent Invoices Table */}
+          <div className="bg-card border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-bone">
-                    1. Video Link / URL <span className="text-red">*</span>
-                  </label>
-                  {rawVideoUrl && (
-                    <span className="text-[11px] bg-red/20 text-red px-2.5 py-0.5 uppercase tracking-wider font-mono border border-red/30">
-                      Detected: {parsed.provider === "googledrive" ? "Google Drive" : parsed.provider.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={rawVideoUrl}
-                  onChange={(e) => setRawVideoUrl(e.target.value)}
-                  placeholder="Paste YouTube, Vimeo, Google Drive, or MP4 URL"
-                  className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone placeholder-mute/50 focus:border-red focus:outline-none"
-                />
-                <p className="text-xs text-mute mt-1.5">
-                  Paste YouTube, Vimeo, Google Drive (view or share link), or direct .mp4 URLs. We extract the ID and embed automatically!
+                <h2 className="font-display font-semibold text-white text-base">
+                  Recent Invoices
+                </h2>
+                <p className="text-[11px] text-secondary mt-0.5">
+                  Latest invoices generated for your video editing clients
                 </p>
-
-                {/* Live Preview if valid */}
-                {parsed.videoUrl && (
-                  <div className="mt-4 p-3 bg-ink border border-white/10 flex items-center gap-4">
-                    {effectiveThumbnail ? (
-                      <img
-                        src={effectiveThumbnail}
-                        alt="Preview"
-                        className="w-24 aspect-video object-cover bg-black border border-white/10"
-                      />
-                    ) : (
-                      <div className="w-24 aspect-video bg-black grid place-items-center text-[10px] text-mute border border-white/10">
-                        No Thumb
-                      </div>
-                    )}
-                    <div className="text-xs">
-                      <p className="text-bone font-medium">Video Ready</p>
-                      <p className="text-mute font-mono text-[11px]">
-                        Provider: {parsed.provider} | Embed: {parsed.videoUrl}
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* Title & Category */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-bone mb-2">
-                    2. Project Title <span className="text-red">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Neon Horizon Reel"
-                    className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone placeholder-mute/50 focus:border-red focus:outline-none"
-                  />
-                </div>
+              <Link
+                href="/admin/invoices"
+                className="text-xs text-red hover:underline underline-offset-4"
+              >
+                View All Invoices ({stats.totalInvoices}) →
+              </Link>
+            </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-bone mb-2">
-                    3. Category
-                  </label>
-                  <input
-                    type="text"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    placeholder="e.g. Commercial / Color Grading"
-                    className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone placeholder-mute/50 focus:border-red focus:outline-none"
-                  />
-                </div>
+            {recentInvoices.length === 0 ? (
+              <div className="py-12 text-center text-secondary text-xs">
+                No invoices generated yet. Click &quot;Create Invoice&quot; to begin!
               </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="text-mute uppercase text-[10px] tracking-wider border-b border-white/10 pb-2">
+                      <th className="py-2.5 px-3">Invoice #</th>
+                      <th className="py-2.5 px-3">Client</th>
+                      <th className="py-2.5 px-3">Due Date</th>
+                      <th className="py-2.5 px-3 text-right">Total</th>
+                      <th className="py-2.5 px-3 text-right">Balance Due</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                      <th className="py-2.5 px-3 text-right">PDF</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {recentInvoices.map((inv) => (
+                      <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="py-3 px-3 font-mono font-semibold text-white">
+                          <Link
+                            href={`/admin/invoices/${inv.id}/edit`}
+                            className="hover:text-red transition-colors"
+                          >
+                            {inv.number}
+                          </Link>
+                        </td>
 
-              {/* Drag and Drop Thumbnail Uploader */}
-              <ThumbnailUploader
-                thumbnailUrl={customThumbnail}
-                autoThumbnail={parsed.autoThumbnail}
-                onThumbnailChange={setCustomThumbnail}
-              />
+                        <td className="py-3 px-3">
+                          <p className="font-medium text-white">{inv.clientName}</p>
+                          {inv.clientCompany && (
+                            <p className="text-[10px] text-secondary">{inv.clientCompany}</p>
+                          )}
+                        </td>
 
-              {/* Description */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-bone mb-2">
-                  5. Project Description / Story
-                </label>
-                <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Tell the story behind the edit, pacing, sound design, and color palette..."
-                  className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone placeholder-mute/50 focus:border-red focus:outline-none"
-                />
+                        <td className="py-3 px-3 text-secondary">{inv.dueDate}</td>
+
+                        <td className="py-3 px-3 text-right font-mono font-semibold text-white">
+                          {formatMoney(inv.grandTotal, inv.currency)}
+                        </td>
+
+                        <td className="py-3 px-3 text-right font-mono font-bold">
+                          <span className={inv.balanceDue > 0 ? "text-gold" : "text-emerald-400"}>
+                            {formatMoney(inv.balanceDue, inv.currency)}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-3 text-center">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                              inv.status === "Paid"
+                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                : inv.status === "Overdue"
+                                ? "bg-red/20 text-red border-red/40"
+                                : "bg-white/10 text-secondary border-white/15"
+                            }`}
+                          >
+                            {inv.status}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-3 text-right">
+                          <a
+                            href={`/api/admin/invoices/${inv.id}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-secondary hover:text-white underline underline-offset-4"
+                          >
+                            PDF ↗
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-
-              {/* Year, Role, Tools */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-bone mb-2">
-                    Year
-                  </label>
-                  <input
-                    type="number"
-                    value={year}
-                    onChange={(e) => setYear(Number(e.target.value))}
-                    className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone focus:border-red focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-bone mb-2">
-                    Your Role
-                  </label>
-                  <input
-                    type="text"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    placeholder="e.g. Editor & Colorist"
-                    className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone focus:border-red focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-bone mb-2">
-                    Software & Tools
-                  </label>
-                  <input
-                    type="text"
-                    value={toolsStr}
-                    onChange={(e) => setToolsStr(e.target.value)}
-                    placeholder="e.g. Premiere, DaVinci"
-                    className="w-full bg-ink border border-white/20 px-4 py-3 text-sm text-bone focus:border-red focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="px-5 py-2.5 text-sm text-mute hover:text-bone border border-white/20 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="bg-red hover:bg-cherry text-bone px-6 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  {saving
-                    ? "Publishing..."
-                    : editSlug
-                    ? "Update Project"
-                    : "Publish to Website"}
-                </button>
-              </div>
-            </form>
+            )}
           </div>
         </div>
       )}

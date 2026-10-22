@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { StudioSettings, Currency } from "@/lib/types/invoice";
+import { AdminAlert } from "@/components/admin/AdminAlert";
 
 export default function StudioSettingsPage() {
   const [settings, setSettings] = useState<StudioSettings | null>(null);
@@ -195,19 +197,23 @@ export default function StudioSettingsPage() {
       </div>
 
       {/* Notifications */}
-      {notification && (
-        <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs flex items-center justify-between animate-fade-in">
-          <span>✓ {notification}</span>
-          <button onClick={() => setNotification(null)} className="text-secondary hover:text-white">✕</button>
-        </div>
-      )}
+      <AnimatePresence>
+        {notification && (
+          <AdminAlert
+            type="success"
+            message={notification}
+            onClose={() => setNotification(null)}
+          />
+        )}
 
-      {error && (
-        <div className="p-4 rounded-xl bg-red/15 border border-red/40 text-white text-xs flex items-center justify-between animate-fade-in">
-          <span>✕ {error}</span>
-          <button onClick={() => setError(null)} className="text-secondary hover:text-white">✕</button>
-        </div>
-      )}
+        {error && (
+          <AdminAlert
+            type="error"
+            message={error}
+            onClose={() => setError(null)}
+          />
+        )}
+      </AnimatePresence>
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Card 1: Studio Branding */}

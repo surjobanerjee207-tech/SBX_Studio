@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AnimatePresence } from "framer-motion";
 import {
   Invoice,
   InvoiceItem,
@@ -16,6 +17,7 @@ import {
 import { calculateInvoiceTotals, formatMoney } from "@/lib/invoice-calc";
 import { LiveInvoicePreview } from "./LiveInvoicePreview";
 import { getQrDecision } from "@/lib/upi-qr";
+import { AdminAlert } from "./AdminAlert";
 
 const CURRENCY_OPTIONS: { value: Currency; short: string; full: string }[] = [
   { value: "INR", short: "₹ INR", full: "INR (₹ - Indian Rupee)" },
@@ -251,7 +253,7 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
   // Remove item
   const removeItem = (index: number) => {
     if (items.length <= 1) {
-      alert("An invoice must contain at least one line item.");
+      setError("An invoice must contain at least one line item.");
       return;
     }
     const updated = items.filter((_, i) => i !== index);
@@ -513,19 +515,27 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
       </div>
 
       {/* Alerts */}
-      {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red/15 border border-red/40 text-white text-xs flex items-center justify-between animate-fade-in">
-          <span>✕ {error}</span>
-          <button onClick={() => setError(null)} className="text-secondary hover:text-white">✕</button>
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <div className="mb-6">
+            <AdminAlert
+              type="error"
+              message={error}
+              onClose={() => setError(null)}
+            />
+          </div>
+        )}
 
-      {successMsg && (
-        <div className="mb-6 p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 animate-fade-in">
-          <span className="text-base">✓</span>
-          <span>{successMsg}</span>
-        </div>
-      )}
+        {successMsg && (
+          <div className="mb-6">
+            <AdminAlert
+              type="success"
+              message={successMsg}
+              onClose={() => setSuccessMsg(null)}
+            />
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -1082,6 +1092,7 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
                   href={`/api/admin/invoices/${initialInvoice.id}/pdf`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => setSuccessMsg("Downloading official PDF...")}
                   className="bg-white/10 hover:bg-white/20 text-white text-xs px-3.5 py-2 rounded-xl transition-colors font-medium flex items-center gap-1.5"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

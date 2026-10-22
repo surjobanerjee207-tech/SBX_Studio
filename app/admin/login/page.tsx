@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AnimatePresence } from "framer-motion";
+import { AdminAlert } from "@/components/admin/AdminAlert";
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
@@ -75,12 +77,17 @@ export default function AdminLoginPage() {
         </div>
 
         {/* Error Alert */}
-        {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red/15 border border-red/30 text-white text-xs flex items-start gap-3 animate-fade-in">
-            <span className="text-red font-bold text-sm leading-none">!</span>
-            <span className="flex-1">{error}</span>
-          </div>
-        )}
+        <AnimatePresence>
+          {error && (
+            <div className="mb-6">
+              <AdminAlert
+                type="error"
+                message={error}
+                onClose={() => setError(null)}
+              />
+            </div>
+          )}
+        </AnimatePresence>
 
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-5">

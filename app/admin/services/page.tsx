@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { ServicePreset, Currency } from "@/lib/types/invoice";
 import { formatMoney } from "@/lib/invoice-calc";
+import { AdminAlert, AlertType } from "@/components/admin/AdminAlert";
 
 export default function ServicesPricingPage() {
   const [services, setServices] = useState<ServicePreset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: AlertType } | null>(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,9 +38,8 @@ export default function ServicesPricingPage() {
     fetchServices();
   }, []);
 
-  const showToast = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 4000);
+  const showToast = (msg: string, type: AlertType = "success") => {
+    setNotification({ message: msg, type });
   };
 
   const openNewModal = () => {
@@ -91,11 +92,11 @@ export default function ServicesPricingPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Save failed");
 
-      showToast(editId ? "Preset updated!" : "New service preset added!");
+      showToast(editId ? "Preset updated!" : "New service preset added!", "success");
       setIsModalOpen(false);
       fetchServices();
     } catch (err: any) {
-      alert("Error saving service: " + err.message);
+      showToast("Error saving service: " + err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -107,10 +108,10 @@ export default function ServicesPricingPage() {
     try {
       const res = await fetch(`/api/admin/services?id=${s.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
-      showToast(`Preset "${s.name}" deleted.`);
+      showToast(`Preset "${s.name}" deleted.`, "success");
       fetchServices();
     } catch (err: any) {
-      alert("Error deleting: " + err.message);
+      showToast("Error deleting preset: " + err.message, "error");
     }
   };
 
@@ -136,12 +137,15 @@ export default function ServicesPricingPage() {
         </button>
       </div>
 
-      {notification && (
-        <div className="p-4 rounded-xl bg-red/15 border border-red/40 text-white text-xs flex items-center justify-between animate-fade-in">
-          <span>✓ {notification}</span>
-          <button onClick={() => setNotification(null)} className="text-secondary hover:text-white">✕</button>
-        </div>
-      )}
+      <AnimatePresence>
+        {notification && (
+          <AdminAlert
+            type={notification.type}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Services List Grid */}
       {loading ? (

@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { AnimatePresence } from "framer-motion";
 import { Client, Invoice } from "@/lib/types/invoice";
 import { formatMoney } from "@/lib/invoice-calc";
+import { AdminAlert, AlertType } from "@/components/admin/AdminAlert";
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: AlertType } | null>(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,9 +48,8 @@ export default function ClientsPage() {
     fetchData();
   }, []);
 
-  const showToast = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 4000);
+  const showToast = (msg: string, type: AlertType = "success") => {
+    setNotification({ message: msg, type });
   };
 
   const openNewModal = () => {
@@ -104,11 +105,11 @@ export default function ClientsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Save failed");
 
-      showToast(editId ? "Client updated!" : "New client added!");
+      showToast(editId ? "Client updated!" : "New client added!", "success");
       setIsModalOpen(false);
       fetchData();
     } catch (err: any) {
-      alert("Error saving client: " + err.message);
+      showToast("Error saving client: " + err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -120,10 +121,10 @@ export default function ClientsPage() {
     try {
       const res = await fetch(`/api/admin/clients?id=${c.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
-      showToast(`Client "${c.name}" removed.`);
+      showToast(`Client "${c.name}" removed.`, "success");
       fetchData();
     } catch (err: any) {
-      alert("Error deleting: " + err.message);
+      showToast("Error deleting client: " + err.message, "error");
     }
   };
 
@@ -173,12 +174,15 @@ export default function ClientsPage() {
         </button>
       </div>
 
-      {notification && (
-        <div className="p-4 rounded-xl bg-red/15 border border-red/40 text-white text-xs flex items-center justify-between animate-fade-in">
-          <span>✓ {notification}</span>
-          <button onClick={() => setNotification(null)} className="text-secondary hover:text-white">✕</button>
-        </div>
-      )}
+      <AnimatePresence>
+        {notification && (
+          <AdminAlert
+            type={notification.type}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Search Bar */}
       <div className="bg-card border border-white/10 rounded-2xl p-4 shadow-xl">

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { AnimatePresence } from "framer-motion";
 import { Invoice, InvoiceStatus, CURRENCY_SYMBOLS } from "@/lib/types/invoice";
 import { formatMoney } from "@/lib/invoice-calc";
+import { AdminAlert, AlertType } from "@/components/admin/AdminAlert";
 
 export default function InvoicesListPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -11,7 +13,7 @@ export default function InvoicesListPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [sortOption, setSortOption] = useState("date-desc");
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: AlertType } | null>(null);
 
   const fetchInvoices = async () => {
     try {
@@ -37,9 +39,8 @@ export default function InvoicesListPage() {
     fetchInvoices();
   }, [search, statusFilter, sortOption]);
 
-  const showToast = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 4000);
+  const showToast = (msg: string, type: AlertType = "success") => {
+    setNotification({ message: msg, type });
   };
 
   const handleDuplicate = async (id: string, num: string) => {
@@ -47,10 +48,10 @@ export default function InvoicesListPage() {
       const res = await fetch(`/api/admin/invoices/${id}/duplicate`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      showToast(`Duplicated ${num} as new invoice ${data.invoice.number}!`);
+      showToast(`Duplicated ${num} as new invoice ${data.invoice.number}!`, "success");
       fetchInvoices();
     } catch (err: any) {
-      alert("Error duplicating: " + err.message);
+      showToast("Error duplicating: " + err.message, "error");
     }
   };
 
@@ -59,10 +60,10 @@ export default function InvoicesListPage() {
       const res = await fetch(`/api/admin/invoices/${id}/mark-paid`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      showToast(`Invoice ${num} marked as Paid!`);
+      showToast(`Invoice ${num} marked as Paid!`, "success");
       fetchInvoices();
     } catch (err: any) {
-      alert("Error marking paid: " + err.message);
+      showToast("Error marking paid: " + err.message, "error");
     }
   };
 
@@ -72,10 +73,10 @@ export default function InvoicesListPage() {
     try {
       const res = await fetch(`/api/admin/invoices/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
-      showToast(`Invoice ${num} deleted.`);
+      showToast(`Invoice ${num} deleted.`, "success");
       fetchInvoices();
     } catch (err: any) {
-      alert("Error deleting: " + err.message);
+      showToast("Error deleting: " + err.message, "error");
     }
   };
 
@@ -83,7 +84,7 @@ export default function InvoicesListPage() {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const url = `${origin}/i/${inv.publicToken}`;
     navigator.clipboard.writeText(url);
-    showToast(`Public link for ${inv.number} copied!`);
+    showToast(`Public link for ${inv.number} copied!`, "success");
   };
 
   const shareWhatsApp = (inv: Invoice) => {
@@ -135,12 +136,15 @@ export default function InvoicesListPage() {
       </div>
 
       {/* Toast Notification */}
-      {notification && (
-        <div className="p-4 rounded-xl bg-red/15 border border-red/40 text-white text-xs flex items-center justify-between animate-fade-in">
-          <span>✓ {notification}</span>
-          <button onClick={() => setNotification(null)} className="text-secondary hover:text-white">✕</button>
-        </div>
-      )}
+      <AnimatePresence>
+        {notification && (
+          <AdminAlert
+            type={notification.type}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Filters, Search & Sort Bar */}
       <div className="bg-card border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
@@ -293,6 +297,7 @@ export default function InvoicesListPage() {
                           href={`/api/admin/invoices/${inv.id}/pdf`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => showToast(`Downloading PDF for ${inv.number}...`, "info")}
                           title="Download Official PDF"
                           className="bg-white/5 hover:bg-white/15 text-white p-2 rounded-lg transition-colors border border-white/10"
                         >

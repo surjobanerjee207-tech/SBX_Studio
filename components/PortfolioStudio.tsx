@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { AnimatePresence } from "framer-motion";
 import { Project, parseVideoUrl } from "@/lib/projects";
 import { ThumbnailUploader } from "@/components/ThumbnailUploader";
+import { AdminAlert } from "@/components/admin/AdminAlert";
 
 export function PortfolioStudio() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -240,17 +242,26 @@ export function PortfolioStudio() {
         </div>
       </div>
 
-      {notification && (
-        <div className="mt-6 bg-red/15 border border-red text-bone px-4 py-3 text-sm flex items-center justify-between animate-fade-in">
-          <span>✓ {notification}</span>
-          <button
-            onClick={() => setNotification(null)}
-            className="text-mute hover:text-bone text-xs"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      <AnimatePresence>
+        {notification && (
+          <div className="mt-6">
+            <AdminAlert
+              type="success"
+              message={notification}
+              onClose={() => setNotification(null)}
+            />
+          </div>
+        )}
+        {error && (
+          <div className="mt-6">
+            <AdminAlert
+              type="error"
+              message={error}
+              onClose={() => setError(null)}
+            />
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Project Count Stats */}
       <div className="mt-8 flex items-center justify-between text-xs text-mute">

@@ -251,11 +251,11 @@ const styles = StyleSheet.create({
   qrContainer: {
     alignItems: "center",
     justifyContent: "center",
-    width: 78,
+    width: 86,
   },
   qrBox: {
-    width: 76,
-    height: 76,
+    width: 84,
+    height: 84,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: BORDER,
@@ -265,8 +265,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   qrImage: {
-    width: 70,
-    height: 70,
+    width: 80,
+    height: 80,
     objectFit: "contain",
   },
   qrCaption: {

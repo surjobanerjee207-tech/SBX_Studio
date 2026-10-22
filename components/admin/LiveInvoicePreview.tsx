@@ -213,16 +213,16 @@ export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProp
 
               {/* Payment QR Code Box */}
               {qrUrl ? (
-                <div className="flex flex-col items-center justify-center shrink-0 w-[82px]">
-                  <div className="w-[78px] h-[78px] bg-white border border-zinc-200 rounded p-1 flex items-center justify-center shadow-xs">
+                <div className="flex flex-col items-center justify-center shrink-0 w-[96px]">
+                  <div className="w-[92px] h-[92px] bg-white border border-zinc-200 rounded p-1 flex items-center justify-center shadow-xs">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={qrUrl}
                       alt="Payment QR Code"
-                      className="w-[70px] h-[70px] object-contain"
+                      className="w-full h-full object-contain"
                     />
                   </div>
-                  <p className="text-[9px] text-zinc-500 font-bold mt-1 text-center max-w-[80px] leading-tight">
+                  <p className="text-[9px] text-zinc-500 font-bold mt-1 text-center max-w-[96px] leading-tight">
                     {settings.qrCaption || "Scan to pay with any UPI app"}
                   </p>
                 </div>

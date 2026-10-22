@@ -34,7 +34,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   phone: "+91 7004844003",
   address: "Jamshedpur, Jharkhand",
   country: "India",
-  upiId: "sbxstudio@upi",
+  upiId: "surjobanerjee702@oksbi",
   bankName: "HDFC Bank",
   bankAccountName: "SBX Studio",
   bankAccountNumber: "50200098765432",

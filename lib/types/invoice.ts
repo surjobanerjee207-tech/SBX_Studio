@@ -101,7 +101,7 @@ export const StudioSettingsSchema = z.object({
   defaultTaxEnabled: z.boolean().default(false),
   defaultPaymentTerms: z.string().optional().default("Payment due within 7 days of invoice date. 50% advance for raw project files."),
   showPaymentQr: z.boolean().default(true),
-  qrMode: z.enum(["auto", "custom"]).default("auto"),
+  qrMode: z.string().default("auto"),
   customQrUrl: z.string().optional().default(""),
   qrCaption: z.string().optional().default("Scan to pay"),
   adminPasswordHash: z.string().optional(),

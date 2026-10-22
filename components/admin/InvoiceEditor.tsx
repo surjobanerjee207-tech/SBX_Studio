@@ -15,6 +15,7 @@ import {
 } from "@/lib/types/invoice";
 import { calculateInvoiceTotals, formatMoney } from "@/lib/invoice-calc";
 import { LiveInvoicePreview } from "./LiveInvoicePreview";
+import { getQrDecision } from "@/lib/upi-qr";
 
 const CURRENCY_OPTIONS: { value: Currency; short: string; full: string }[] = [
   { value: "INR", short: "₹ INR", full: "INR (₹ - Indian Rupee)" },
@@ -90,7 +91,9 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
     initialInvoice?.paymentInstructions || ""
   );
   const [showPaymentQr, setShowPaymentQr] = useState<boolean>(
-    initialInvoice?.showPaymentQr !== undefined ? initialInvoice.showPaymentQr : true
+    initialInvoice?.showPaymentQr !== undefined && initialInvoice?.showPaymentQr !== null
+      ? Boolean(initialInvoice.showPaymentQr)
+      : true
   );
 
   // UI state
@@ -145,8 +148,8 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
             setCurrency(settingsData.settings.defaultCurrency || "INR");
             setTaxRate(settingsData.settings.defaultTaxRate || 18);
             setTaxEnabled(settingsData.settings.defaultTaxEnabled || false);
-            if (settingsData.settings.showPaymentQr !== undefined && initialInvoice?.showPaymentQr === undefined) {
-              setShowPaymentQr(settingsData.settings.showPaymentQr);
+            if (settingsData.settings.showPaymentQr !== undefined && settingsData.settings.showPaymentQr !== null && initialInvoice?.showPaymentQr === undefined) {
+              setShowPaymentQr(Boolean(settingsData.settings.showPaymentQr));
             }
             if (!paymentInstructions) {
               setPaymentInstructions(settingsData.settings.defaultPaymentTerms || "");
@@ -311,6 +314,34 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
     updatedAt: todayStr,
     items: computedTotals.items,
   };
+
+  const activeSettings: StudioSettings = settings || {
+    id: "default",
+    studioName: "SBX Studio",
+    logoUrl: "/icon.svg",
+    email: "surjobanerjee207@gmail.com",
+    phone: "+91 7004844003",
+    address: "Jamshedpur, Jharkhand",
+    country: "India",
+    upiId: "surjobanerjee702@oksbi",
+    bankName: "HDFC Bank",
+    bankAccountName: "SBX Studio",
+    bankAccountNumber: "50200098765432",
+    bankIfsc: "HDFC0001234",
+    bankSwift: "HDFCINBBXXX",
+    footerMessage: "Thank you for collaborating with SBX Studio. Every frame tells a story.",
+    defaultCurrency: "INR",
+    defaultTaxRate: 18,
+    defaultTaxEnabled: false,
+    showPaymentQr: true,
+    qrMode: "custom",
+    customQrUrl: "/payment-qr.jpg",
+    qrCaption: "Scan to pay with any UPI app",
+    defaultPaymentTerms: "",
+    updatedAt: new Date().toISOString(),
+  };
+
+  const qrDecision = getQrDecision(previewInvoice, activeSettings);
 
   // Save handler
   const handleSave = async (overrideStatus?: string) => {
@@ -988,24 +1019,33 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
             </div>
 
             {/* Payment QR Code Toggle */}
-            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-secondary">
-                  Payment QR Code
+            <div className="pt-3 border-t border-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-secondary">
+                    Payment QR Code
+                  </label>
+                  <p className="text-[11px] text-mute">
+                    Show payment QR code on this invoice and PDF
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showPaymentQr}
+                    onChange={(e) => setShowPaymentQr(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red"></div>
                 </label>
-                <p className="text-[11px] text-mute">
-                  Show payment QR code on this invoice and PDF
-                </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showPaymentQr}
-                  onChange={(e) => setShowPaymentQr(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red"></div>
-              </label>
+
+              {!qrDecision.shouldShow && qrDecision.reason ? (
+                <div className="text-[11px] text-zinc-400 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5">
+                  <span className="text-zinc-500 font-bold">ℹ️ QR not shown:</span>
+                  <span>{qrDecision.reason}</span>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1025,7 +1065,7 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
           </div>
 
           {/* Render the Live Preview Component */}
-          <LiveInvoicePreview invoice={previewInvoice} settings={settings} />
+          <LiveInvoicePreview invoice={previewInvoice} settings={activeSettings} />
 
           {/* Action Bar beneath preview */}
           <div className="p-4 bg-card border border-white/10 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xl">

@@ -34,9 +34,9 @@ export const DEFAULT_SETTINGS: StudioSettings = {
   defaultTaxRate: 18,
   defaultTaxEnabled: false,
   showPaymentQr: true,
-  qrMode: "auto",
-  customQrUrl: "",
-  qrCaption: "Scan to pay",
+  qrMode: "custom",
+  customQrUrl: "/payment-qr.jpg",
+  qrCaption: "Scan to pay with any UPI app",
   defaultPaymentTerms:
     "50% advance to initiate edit. Remaining balance upon final video delivery. UPI / IMPS / Bank transfer accepted.",
   adminPasswordHash: "",
@@ -220,10 +220,37 @@ export function mapPrismaInvoice(rec: any): Invoice {
 // Studio Settings & Admin Password Management
 // ----------------------------------------------------
 
+let qrRowsHealed = false;
+async function healQrRowsOnce() {
+  if (qrRowsHealed) return;
+  qrRowsHealed = true;
+  try {
+    await prisma.$executeRawUnsafe(`
+      UPDATE "StudioSettings"
+      SET "showPaymentQr" = true,
+          "qrMode" = 'custom',
+          "customQrUrl" = '/payment-qr.jpg',
+          "qrCaption" = 'Scan to pay with any UPI app'
+      WHERE "id" = 'default';
+    `);
+    await prisma.$executeRawUnsafe(`
+      UPDATE "Invoice"
+      SET "showPaymentQr" = true
+      WHERE "showPaymentQr" IS NULL OR "showPaymentQr" = false;
+    `);
+  } catch (e) {
+    // Continue if tables do not exist or raw execution fails
+  }
+}
+
 export async function getStudioSettings(): Promise<StudioSettings> {
   try {
+    healQrRowsOnce().catch(() => {});
     const record = await prisma.studioSettings.findUnique({ where: { id: "default" } });
     if (record) {
+      const isCustomMode =
+        (record.qrMode === "custom" || record.qrMode === "upload") && Boolean(record.customQrUrl);
+
       return {
         id: record.id,
         studioName: record.studioName,
@@ -244,9 +271,9 @@ export async function getStudioSettings(): Promise<StudioSettings> {
         defaultTaxEnabled: record.defaultTaxEnabled,
         defaultPaymentTerms: record.defaultPaymentTerms || DEFAULT_SETTINGS.defaultPaymentTerms,
         showPaymentQr: record.showPaymentQr ?? true,
-        qrMode: (record.qrMode as any) || "auto",
-        customQrUrl: record.customQrUrl || "",
-        qrCaption: record.qrCaption || "Scan to pay",
+        qrMode: (record.qrMode as any) || "custom",
+        customQrUrl: record.customQrUrl || "/payment-qr.jpg",
+        qrCaption: record.qrCaption || "Scan to pay with any UPI app",
         adminPasswordHash: record.adminPasswordHash || undefined,
         adminPasswordSalt: record.adminPasswordSalt || undefined,
         updatedAt: record.updatedAt.toISOString(),

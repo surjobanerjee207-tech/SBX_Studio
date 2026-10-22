@@ -149,11 +149,20 @@ export function verifySessionToken(token: string | undefined | null): boolean {
  * Returns whether the incoming API request is from an authenticated admin.
  */
 export function isAuthenticatedRequest(req: NextRequest | Request): boolean {
-  // Check cookie in NextRequest or standard Request
   let token: string | undefined;
-  if ("cookies" in req && typeof (req as any).cookies?.get === "function") {
+
+  try {
+    const cookieStore = cookies();
+    token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  } catch {
+    // outside cookies context
+  }
+
+  if (!token && "cookies" in req && typeof (req as any).cookies?.get === "function") {
     token = (req as any).cookies.get(SESSION_COOKIE_NAME)?.value;
-  } else {
+  }
+
+  if (!token) {
     const cookieHeader = req.headers.get("cookie") || "";
     const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE_NAME}=([^;]+)`));
     token = match ? match[1] : undefined;

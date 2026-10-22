@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Invoice, StudioSettings, CURRENCY_SYMBOLS } from "@/lib/types/invoice";
 import { formatMoney } from "@/lib/invoice-calc";
-import { generateInvoiceQrDataUrl } from "@/lib/upi-qr";
+import { generateInvoiceQrDataUrl, getQrDecision } from "@/lib/upi-qr";
 
 interface LiveInvoicePreviewProps {
   invoice: Invoice;
@@ -12,12 +12,26 @@ interface LiveInvoicePreviewProps {
 
 export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProps) {
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
+
+  const qrDecision = getQrDecision(invoice, settings);
 
   useEffect(() => {
     let isMounted = true;
-    generateInvoiceQrDataUrl(invoice, settings).then((url) => {
-      if (isMounted) setQrUrl(url);
-    });
+    generateInvoiceQrDataUrl(invoice, settings)
+      .then((url) => {
+        if (isMounted) {
+          setQrUrl(url);
+          setQrError(null);
+        }
+      })
+      .catch((err) => {
+        console.error("LiveInvoicePreview QR generation error:", err);
+        if (isMounted) {
+          setQrUrl(null);
+          setQrError(err?.message || "Failed to generate QR");
+        }
+      });
     return () => {
       isMounted = false;
     };
@@ -158,41 +172,75 @@ export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProp
       {/* Bottom Grid: Payment Info + Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-4 border-t border-zinc-200">
         {/* Payment instructions */}
-        <div className="p-4 bg-zinc-50 border border-zinc-200 rounded text-[11px] text-zinc-600">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-red mb-2">
-            Payment Details
-          </p>
-          <div className="space-y-1">
-            {settings.upiId && (
-              <p>
-                <span className="font-semibold text-zinc-700">UPI ID:</span> {settings.upiId}
-              </p>
-            )}
-            {settings.bankName && (
-              <p>
-                <span className="font-semibold text-zinc-700">Bank:</span> {settings.bankName}
-              </p>
-            )}
-            {settings.bankAccountName && (
-              <p>
-                <span className="font-semibold text-zinc-700">A/C Name:</span> {settings.bankAccountName}
-              </p>
-            )}
-            {settings.bankAccountNumber && (
-              <p>
-                <span className="font-semibold text-zinc-700">A/C No:</span> {settings.bankAccountNumber}
-              </p>
-            )}
-            {settings.bankIfsc && (
-              <p>
-                <span className="font-semibold text-zinc-700">IFSC:</span> {settings.bankIfsc}
-              </p>
-            )}
-            {settings.bankSwift && (
-              <p>
-                <span className="font-semibold text-zinc-700">SWIFT:</span> {settings.bankSwift}
-              </p>
-            )}
+        <div className="p-4 bg-zinc-50 border border-zinc-200 rounded text-[11px] text-zinc-600 flex flex-col justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red mb-2">
+              Payment Details
+            </p>
+            <div className="flex flex-row justify-between items-start gap-3">
+              <div className="space-y-1 flex-1 min-w-0">
+                {settings.upiId && (
+                  <p className="truncate">
+                    <span className="font-semibold text-zinc-700">UPI ID:</span> {settings.upiId}
+                  </p>
+                )}
+                {settings.bankName && (
+                  <p>
+                    <span className="font-semibold text-zinc-700">Bank:</span> {settings.bankName}
+                  </p>
+                )}
+                {settings.bankAccountName && (
+                  <p>
+                    <span className="font-semibold text-zinc-700">A/C Name:</span> {settings.bankAccountName}
+                  </p>
+                )}
+                {settings.bankAccountNumber && (
+                  <p>
+                    <span className="font-semibold text-zinc-700">A/C No:</span> {settings.bankAccountNumber}
+                  </p>
+                )}
+                {settings.bankIfsc && (
+                  <p>
+                    <span className="font-semibold text-zinc-700">IFSC:</span> {settings.bankIfsc}
+                  </p>
+                )}
+                {settings.bankSwift && (
+                  <p>
+                    <span className="font-semibold text-zinc-700">SWIFT:</span> {settings.bankSwift}
+                  </p>
+                )}
+              </div>
+
+              {/* Payment QR Code Box */}
+              {qrUrl ? (
+                <div className="flex flex-col items-center justify-center shrink-0 w-[82px]">
+                  <div className="w-[78px] h-[78px] bg-white border border-zinc-200 rounded p-1 flex items-center justify-center shadow-xs">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={qrUrl}
+                      alt="Payment QR Code"
+                      className="w-[70px] h-[70px] object-contain"
+                    />
+                  </div>
+                  <p className="text-[9px] text-zinc-500 font-bold mt-1 text-center max-w-[80px] leading-tight">
+                    {settings.qrCaption || "Scan to pay with any UPI app"}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Small grey hint if condition fails (Requirement 5) */}
+            {!qrUrl && qrDecision.reason ? (
+              <div className="mt-2.5 pt-2 border-t border-zinc-200/80 text-[10px] text-zinc-400 italic">
+                QR note: {qrDecision.reason}
+              </div>
+            ) : null}
+
+            {qrError ? (
+              <div className="mt-2 text-[10px] text-red italic">
+                QR error: {qrError}
+              </div>
+            ) : null}
           </div>
 
           {invoice.paymentInstructions && (

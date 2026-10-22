@@ -476,7 +476,7 @@ export function InvoicePdfDocument({ invoice, settings, qrDataUrl }: InvoicePdfP
                   <View style={styles.qrBox}>
                     <Image src={qrDataUrl} style={styles.qrImage} />
                   </View>
-                  <Text style={styles.qrCaption}>{settings.qrCaption || "Scan to pay"}</Text>
+                  <Text style={styles.qrCaption}>{settings.qrCaption || "Scan to pay with any UPI app"}</Text>
                 </View>
               ) : null}
             </View>
@@ -565,7 +565,12 @@ export async function generateInvoicePdfBuffer(
   invoice: Invoice,
   settings: StudioSettings
 ): Promise<Buffer> {
-  const qrDataUrl = await generateInvoiceQrDataUrl(invoice, settings);
+  let qrDataUrl: string | null = null;
+  try {
+    qrDataUrl = await generateInvoiceQrDataUrl(invoice, settings);
+  } catch (err) {
+    console.error("generateInvoicePdfBuffer: Failed to generate invoice QR data URL:", err);
+  }
   const element = <InvoicePdfDocument invoice={invoice} settings={settings} qrDataUrl={qrDataUrl} />;
   return await renderToBuffer(element);
 }

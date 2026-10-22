@@ -148,10 +148,8 @@ export function ContactForm() {
             deadlineErr ? "!border-red" : ""
           }`}
         />
-        {deadlineErr ? (
+        {deadlineErr && (
           <p className="text-xs text-red mt-1.5 font-medium">{deadlineErr}</p>
-        ) : (
-          <p className="text-xs text-mute/70 mt-1">Within the next 2 years</p>
         )}
       </label>
       <button

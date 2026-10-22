@@ -4,8 +4,8 @@
     "studioName": "SBX Studio",
     "logoUrl": "/icon.svg",
     "email": "contact@sbxstudio.com",
-    "phone": "+91 98765 43210",
-    "address": "Kolkata, West Bengal",
+    "phone": "+91 7004844003",
+    "address": "Jamshedpur, Jharkhand",
     "country": "India",
     "upiId": "sbxstudio@upi",
     "bankName": "HDFC Bank",
@@ -58,6 +58,18 @@
       "notes": "",
       "createdAt": "2026-10-22T05:16:38.803Z",
       "updatedAt": "2026-10-22T05:16:38.803Z"
+    },
+    {
+      "id": "cli_cef4d6ebf599",
+      "name": "Rahul Sharma",
+      "company": "Red Bull India",
+      "email": "surjobanerjee207@gmail.com",
+      "phone": "7004844003",
+      "address": "Main Road, Pincode\nKadma, Ramjanam Nagar, Uliyan",
+      "country": "India",
+      "notes": "",
+      "createdAt": "2026-10-22T08:01:42.219Z",
+      "updatedAt": "2026-10-22T08:01:42.219Z"
     }
   ],
   "services": [
@@ -173,6 +185,52 @@
     }
   ],
   "invoices": [
+    {
+      "id": "inv_e17939150d954f31",
+      "number": "SBX-2026-003",
+      "clientId": null,
+      "clientName": "Rahul Sharma",
+      "clientCompany": "Red Bull India",
+      "clientEmail": "surjobanerjee207@gmail.com",
+      "clientPhone": "7004844003",
+      "clientAddress": "Main Road, Pincode\nKadma, Ramjanam Nagar, Uliyan",
+      "clientCountry": "India",
+      "date": "2026-10-22",
+      "dueDate": "2026-10-29",
+      "currency": "INR",
+      "status": "Sent",
+      "paymentInstructions": "50% advance to initiate edit. Remaining balance upon final video delivery. UPI / IMPS / Bank transfer accepted.",
+      "footerNotes": "",
+      "subtotal": 2000,
+      "discountType": "percent",
+      "discountValue": 0,
+      "discountAmount": 0,
+      "taxEnabled": true,
+      "taxRate": 18,
+      "taxAmount": 360,
+      "extraCharges": 0,
+      "extraChargesLabel": "Rush Turnaround Fee",
+      "grandTotal": 2360,
+      "advancePaid": 0,
+      "balanceDue": 2360,
+      "publicToken": "09437a2689f399257637533511251a97",
+      "publicLinkEnabled": true,
+      "sentAt": "2026-10-22T08:01:42.214Z",
+      "createdAt": "2026-10-22T08:01:42.214Z",
+      "updatedAt": "2026-10-22T08:01:42.214Z",
+      "items": [
+        {
+          "id": "item_1",
+          "name": "Video Editing",
+          "description": "Cinematic cut, pacing, storytelling & assembly",
+          "quantity": 1,
+          "unit": "video",
+          "unitPrice": 2000,
+          "total": 2000,
+          "order": 0
+        }
+      ]
+    },
     {
       "id": "inv_fd835e0c8031552f",
       "number": "SBX-2026-002",

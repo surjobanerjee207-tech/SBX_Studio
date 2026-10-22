@@ -42,7 +42,14 @@ export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProp
             Video Editing & Visual Storytelling
           </p>
           <div className="text-[11px] text-zinc-600 mt-2 space-y-0.5">
-            {settings.address && <p>{settings.address}, {settings.country}</p>}
+            {settings.address && (
+              <p>
+                {settings.address}
+                {settings.country && !settings.address.toLowerCase().includes(settings.country.toLowerCase())
+                  ? ", " + settings.country
+                  : ""}
+              </p>
+            )}
             {settings.email && <p>Email: {settings.email}</p>}
             {settings.phone && <p>Phone: {settings.phone}</p>}
           </div>

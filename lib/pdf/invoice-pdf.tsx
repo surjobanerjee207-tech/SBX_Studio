@@ -321,7 +321,14 @@ export function InvoicePdfDocument({ invoice, settings }: InvoicePdfProps) {
             <Text style={styles.studioTitle}>{settings.studioName || "SBX Studio"}</Text>
             <Text style={styles.studioSubtitle}>Video Editing & Visual Storytelling</Text>
             <View style={styles.studioDetails}>
-              {settings.address ? <Text>{settings.address}, {settings.country}</Text> : null}
+              {settings.address ? (
+                <Text>
+                  {settings.address}
+                  {settings.country && !settings.address.toLowerCase().includes(settings.country.toLowerCase())
+                    ? ", " + settings.country
+                    : ""}
+                </Text>
+              ) : null}
               {settings.email ? <Text>Email: {settings.email}</Text> : null}
               {settings.phone ? <Text>Phone: {settings.phone}</Text> : null}
             </View>

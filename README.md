@@ -49,7 +49,7 @@ Portfolio website and private invoice manager for **SBX Studio**, a creative stu
 ```bash
    npm run dev
 ```
-   Open http://localhost:3000 (admin at http://localhost:3000/admin).
+   Open http://localhost:3000 
 
 ## Environment variables
 

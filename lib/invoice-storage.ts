@@ -1,6 +1,5 @@
-import fs from "fs/promises";
-import path from "path";
 import crypto from "crypto";
+import { prisma } from "./prisma";
 import {
   Client,
   Invoice,
@@ -16,17 +15,7 @@ import {
 } from "./invoice-calc";
 import { hashPassword, verifyPassword } from "./auth";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const STORE_PATH = path.join(DATA_DIR, "invoicing-store.json");
-
-interface InvoicingStoreData {
-  settings: StudioSettings;
-  clients: Client[];
-  services: ServicePreset[];
-  invoices: Invoice[];
-}
-
-const DEFAULT_SETTINGS: StudioSettings = {
+export const DEFAULT_SETTINGS: StudioSettings = {
   id: "default",
   studioName: "SBX Studio",
   logoUrl: "/icon.svg",
@@ -55,7 +44,7 @@ const DEFAULT_SETTINGS: StudioSettings = {
   updatedAt: new Date().toISOString(),
 };
 
-const DEFAULT_SERVICES: ServicePreset[] = [
+export const DEFAULT_SERVICES: ServicePreset[] = [
   {
     id: "srv_1",
     name: "Video Editing",
@@ -103,7 +92,7 @@ const DEFAULT_SERVICES: ServicePreset[] = [
   {
     id: "srv_5",
     name: "Color Grading",
-    description: "DaVinci Resolve cinematic look dev, balancing, and shot matching",
+    description: "Look development, shot matching, film emulation, and HDR mastering",
     defaultUnit: "video",
     defaultPrice: 2500,
     currency: "INR",
@@ -113,10 +102,10 @@ const DEFAULT_SERVICES: ServicePreset[] = [
   },
   {
     id: "srv_6",
-    name: "VFX",
-    description: "Chroma keying, screen replacement, rotoscoping, and cleanup",
-    defaultUnit: "shot",
-    defaultPrice: 4000,
+    name: "YouTube Optimization",
+    description: "Thumbnail design, retention hooks, pacing cutdowns, and sound leveling",
+    defaultUnit: "video",
+    defaultPrice: 1500,
     currency: "INR",
     order: 5,
     createdAt: new Date().toISOString(),
@@ -124,10 +113,10 @@ const DEFAULT_SERVICES: ServicePreset[] = [
   },
   {
     id: "srv_7",
-    name: "Thumbnail Design",
-    description: "High-CTR custom YouTube / Social thumbnail artwork",
-    defaultUnit: "thumbnail",
-    defaultPrice: 800,
+    name: "Short-Form Reel / TikTok",
+    description: "Dynamic captions, kinetic sound design, fast cuts, and mobile framing",
+    defaultUnit: "reel",
+    defaultPrice: 1000,
     currency: "INR",
     order: 6,
     createdAt: new Date().toISOString(),
@@ -135,40 +124,18 @@ const DEFAULT_SERVICES: ServicePreset[] = [
   },
   {
     id: "srv_8",
-    name: "Social Reel Editing",
-    description: "Fast-paced vertical reel / TikTok / Shorts edit with subtitles",
-    defaultUnit: "reel",
-    defaultPrice: 1500,
+    name: "Commercial Brand Film",
+    description: "Full end-to-end post production: editorial, sound, VFX, and finish",
+    defaultUnit: "project",
+    defaultPrice: 10000,
     currency: "INR",
     order: 7,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
-  {
-    id: "srv_9",
-    name: "YouTube Editing",
-    description: "Full YouTube longform video editing with B-roll, zoom cuts, music",
-    defaultUnit: "video",
-    defaultPrice: 3000,
-    currency: "INR",
-    order: 8,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "srv_10",
-    name: "Custom Service",
-    description: "Bespoke creative post-production work",
-    defaultUnit: "service",
-    defaultPrice: 1000,
-    currency: "INR",
-    order: 9,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
 ];
 
-const DEFAULT_CLIENTS: Client[] = [
+export const DEFAULT_CLIENTS: Client[] = [
   {
     id: "cli_1",
     name: "Apex Creative Media",
@@ -195,30 +162,7 @@ const DEFAULT_CLIENTS: Client[] = [
   },
 ];
 
-// Singleton prisma client
-declare global {
-  // eslint-disable-next-line no-var
-  var prismaGlobal: any | undefined;
-}
-
-// Helper to check if PostgreSQL via Prisma is available with caching
-async function getPrismaClient() {
-  if (!process.env.DATABASE_URL) return null;
-  try {
-    if (globalThis.prismaGlobal) {
-      return globalThis.prismaGlobal;
-    }
-    const { PrismaClient } = await import("@prisma/client");
-    const prisma = new PrismaClient();
-    await prisma.$queryRaw`SELECT 1`;
-    globalThis.prismaGlobal = prisma;
-    return prisma;
-  } catch (err) {
-    return null;
-  }
-}
-
-function mapPrismaInvoice(rec: any): Invoice {
+export function mapPrismaInvoice(rec: any): Invoice {
   const dateStr = rec.date instanceof Date ? rec.date.toISOString().split("T")[0] : String(rec.date).split("T")[0];
   const dueDateStr = rec.dueDate instanceof Date ? rec.dueDate.toISOString().split("T")[0] : String(rec.dueDate).split("T")[0];
   const computedStatus = getComputedStatus(rec.status, dueDateStr);
@@ -272,95 +216,79 @@ function mapPrismaInvoice(rec: any): Invoice {
   };
 }
 
-/**
- * Reads local JSON store with fallback initialization.
- */
-async function readStore(): Promise<InvoicingStoreData> {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    const content = await fs.readFile(STORE_PATH, "utf-8");
-    const data = JSON.parse(content) as InvoicingStoreData;
-    return {
-      settings: { ...DEFAULT_SETTINGS, ...data.settings },
-      clients: Array.isArray(data.clients) ? data.clients : DEFAULT_CLIENTS,
-      services: Array.isArray(data.services) && data.services.length > 0 ? data.services : DEFAULT_SERVICES,
-      invoices: Array.isArray(data.invoices) ? data.invoices : [],
-    };
-  } catch {
-    // If missing or invalid, initialize with defaults
-    const initial: InvoicingStoreData = {
-      settings: { ...DEFAULT_SETTINGS },
-      clients: [...DEFAULT_CLIENTS],
-      services: [...DEFAULT_SERVICES],
-      invoices: [],
-    };
-    await writeStore(initial);
-    return initial;
-  }
-}
-
-/**
- * Writes to local JSON store atomically with serverless EROFS fallback.
- */
-async function writeStore(data: InvoicingStoreData): Promise<void> {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    const tempPath = `${STORE_PATH}.tmp.${Date.now()}`;
-    await fs.writeFile(tempPath, JSON.stringify(data, null, 2), "utf-8");
-    await fs.rename(tempPath, STORE_PATH);
-  } catch (err) {
-    if (process.env.DATABASE_URL) {
-      return;
-    }
-    throw err;
-  }
-}
-
 // ----------------------------------------------------
 // Studio Settings & Admin Password Management
 // ----------------------------------------------------
 
 export async function getStudioSettings(): Promise<StudioSettings> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      const record = await prisma.studioSettings.findUnique({ where: { id: "default" } });
-      if (record) {
-        return {
-          id: record.id,
-          studioName: record.studioName,
-          logoUrl: record.logoUrl || "",
-          email: record.email || "",
-          phone: record.phone || "",
-          address: record.address || "",
-          country: record.country || "India",
-          upiId: record.upiId || "",
-          bankName: record.bankName || "",
-          bankAccountName: record.bankAccountName || "",
-          bankAccountNumber: record.bankAccountNumber || "",
-          bankIfsc: record.bankIfsc || "",
-          bankSwift: record.bankSwift || "",
-          footerMessage: record.footerMessage || "",
-          defaultCurrency: (record.defaultCurrency as any) || "INR",
-          defaultTaxRate: record.defaultTaxRate,
-          defaultTaxEnabled: record.defaultTaxEnabled,
-          defaultPaymentTerms: record.defaultPaymentTerms || "",
-          showPaymentQr: record.showPaymentQr ?? true,
-          qrMode: (record.qrMode as any) || "auto",
-          customQrUrl: record.customQrUrl || "",
-          qrCaption: record.qrCaption || "Scan to pay",
-          adminPasswordHash: record.adminPasswordHash || undefined,
-          adminPasswordSalt: record.adminPasswordSalt || undefined,
-          updatedAt: record.updatedAt.toISOString(),
-        };
-      }
-    } catch {
-      // fallback to store
+  try {
+    const record = await prisma.studioSettings.findUnique({ where: { id: "default" } });
+    if (record) {
+      return {
+        id: record.id,
+        studioName: record.studioName,
+        logoUrl: record.logoUrl || DEFAULT_SETTINGS.logoUrl,
+        email: record.email || DEFAULT_SETTINGS.email,
+        phone: record.phone || DEFAULT_SETTINGS.phone,
+        address: record.address || DEFAULT_SETTINGS.address,
+        country: record.country || DEFAULT_SETTINGS.country,
+        upiId: record.upiId || DEFAULT_SETTINGS.upiId,
+        bankName: record.bankName || DEFAULT_SETTINGS.bankName,
+        bankAccountName: record.bankAccountName || DEFAULT_SETTINGS.bankAccountName,
+        bankAccountNumber: record.bankAccountNumber || DEFAULT_SETTINGS.bankAccountNumber,
+        bankIfsc: record.bankIfsc || DEFAULT_SETTINGS.bankIfsc,
+        bankSwift: record.bankSwift || DEFAULT_SETTINGS.bankSwift,
+        footerMessage: record.footerMessage || DEFAULT_SETTINGS.footerMessage,
+        defaultCurrency: (record.defaultCurrency as any) || DEFAULT_SETTINGS.defaultCurrency,
+        defaultTaxRate: record.defaultTaxRate,
+        defaultTaxEnabled: record.defaultTaxEnabled,
+        defaultPaymentTerms: record.defaultPaymentTerms || DEFAULT_SETTINGS.defaultPaymentTerms,
+        showPaymentQr: record.showPaymentQr ?? true,
+        qrMode: (record.qrMode as any) || "auto",
+        customQrUrl: record.customQrUrl || "",
+        qrCaption: record.qrCaption || "Scan to pay",
+        adminPasswordHash: record.adminPasswordHash || undefined,
+        adminPasswordSalt: record.adminPasswordSalt || undefined,
+        updatedAt: record.updatedAt.toISOString(),
+      };
     }
-  }
 
-  const store = await readStore();
-  return store.settings;
+    // Initialize default row in database
+    const created = await prisma.studioSettings.create({
+      data: {
+        id: "default",
+        studioName: DEFAULT_SETTINGS.studioName,
+        logoUrl: DEFAULT_SETTINGS.logoUrl,
+        email: DEFAULT_SETTINGS.email,
+        phone: DEFAULT_SETTINGS.phone,
+        address: DEFAULT_SETTINGS.address,
+        country: DEFAULT_SETTINGS.country,
+        upiId: DEFAULT_SETTINGS.upiId,
+        bankName: DEFAULT_SETTINGS.bankName,
+        bankAccountName: DEFAULT_SETTINGS.bankAccountName,
+        bankAccountNumber: DEFAULT_SETTINGS.bankAccountNumber,
+        bankIfsc: DEFAULT_SETTINGS.bankIfsc,
+        bankSwift: DEFAULT_SETTINGS.bankSwift,
+        footerMessage: DEFAULT_SETTINGS.footerMessage,
+        defaultCurrency: DEFAULT_SETTINGS.defaultCurrency,
+        defaultTaxRate: DEFAULT_SETTINGS.defaultTaxRate,
+        defaultTaxEnabled: DEFAULT_SETTINGS.defaultTaxEnabled,
+        defaultPaymentTerms: DEFAULT_SETTINGS.defaultPaymentTerms,
+        showPaymentQr: DEFAULT_SETTINGS.showPaymentQr,
+        qrMode: DEFAULT_SETTINGS.qrMode,
+        customQrUrl: DEFAULT_SETTINGS.customQrUrl,
+        qrCaption: DEFAULT_SETTINGS.qrCaption,
+      },
+    });
+
+    return {
+      ...DEFAULT_SETTINGS,
+      updatedAt: created.updatedAt.toISOString(),
+    };
+  } catch (err) {
+    console.warn("Prisma getStudioSettings fallback:", err);
+    return { ...DEFAULT_SETTINGS };
+  }
 }
 
 export async function updateStudioSettings(
@@ -373,117 +301,165 @@ export async function updateStudioSettings(
     updatedAt: new Date().toISOString(),
   };
 
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      await prisma.studioSettings.upsert({
-        where: { id: "default" },
-        update: {
-          studioName: merged.studioName,
-          logoUrl: merged.logoUrl,
-          email: merged.email,
-          phone: merged.phone,
-          address: merged.address,
-          country: merged.country,
-          upiId: merged.upiId,
-          bankName: merged.bankName,
-          bankAccountName: merged.bankAccountName,
-          bankAccountNumber: merged.bankAccountNumber,
-          bankIfsc: merged.bankIfsc,
-          bankSwift: merged.bankSwift,
-          footerMessage: merged.footerMessage,
-          defaultCurrency: merged.defaultCurrency,
-          defaultTaxRate: merged.defaultTaxRate,
-          defaultTaxEnabled: merged.defaultTaxEnabled,
-          defaultPaymentTerms: merged.defaultPaymentTerms,
-          showPaymentQr: merged.showPaymentQr,
-          qrMode: merged.qrMode,
-          customQrUrl: merged.customQrUrl,
-          qrCaption: merged.qrCaption,
-          adminPasswordHash: merged.adminPasswordHash,
-          adminPasswordSalt: merged.adminPasswordSalt,
-        },
-        create: {
-          id: "default",
-          studioName: merged.studioName,
-          logoUrl: merged.logoUrl,
-          email: merged.email,
-          phone: merged.phone,
-          address: merged.address,
-          country: merged.country,
-          upiId: merged.upiId,
-          bankName: merged.bankName,
-          bankAccountName: merged.bankAccountName,
-          bankAccountNumber: merged.bankAccountNumber,
-          bankIfsc: merged.bankIfsc,
-          bankSwift: merged.bankSwift,
-          footerMessage: merged.footerMessage,
-          defaultCurrency: merged.defaultCurrency,
-          defaultTaxRate: merged.defaultTaxRate,
-          defaultTaxEnabled: merged.defaultTaxEnabled,
-          defaultPaymentTerms: merged.defaultPaymentTerms,
-          showPaymentQr: merged.showPaymentQr,
-          qrMode: merged.qrMode,
-          customQrUrl: merged.customQrUrl,
-          qrCaption: merged.qrCaption,
-          adminPasswordHash: merged.adminPasswordHash,
-          adminPasswordSalt: merged.adminPasswordSalt,
-        },
-      });
-    } catch {
-      // continue to file sync
-    }
-  }
+  const record = await prisma.studioSettings.upsert({
+    where: { id: "default" },
+    update: {
+      studioName: merged.studioName,
+      logoUrl: merged.logoUrl,
+      email: merged.email,
+      phone: merged.phone,
+      address: merged.address,
+      country: merged.country,
+      upiId: merged.upiId,
+      bankName: merged.bankName,
+      bankAccountName: merged.bankAccountName,
+      bankAccountNumber: merged.bankAccountNumber,
+      bankIfsc: merged.bankIfsc,
+      bankSwift: merged.bankSwift,
+      footerMessage: merged.footerMessage,
+      defaultCurrency: merged.defaultCurrency,
+      defaultTaxRate: merged.defaultTaxRate,
+      defaultTaxEnabled: merged.defaultTaxEnabled,
+      defaultPaymentTerms: merged.defaultPaymentTerms,
+      showPaymentQr: merged.showPaymentQr,
+      qrMode: merged.qrMode,
+      customQrUrl: merged.customQrUrl,
+      qrCaption: merged.qrCaption,
+      adminPasswordHash: merged.adminPasswordHash,
+      adminPasswordSalt: merged.adminPasswordSalt,
+    },
+    create: {
+      id: "default",
+      studioName: merged.studioName,
+      logoUrl: merged.logoUrl,
+      email: merged.email,
+      phone: merged.phone,
+      address: merged.address,
+      country: merged.country,
+      upiId: merged.upiId,
+      bankName: merged.bankName,
+      bankAccountName: merged.bankAccountName,
+      bankAccountNumber: merged.bankAccountNumber,
+      bankIfsc: merged.bankIfsc,
+      bankSwift: merged.bankSwift,
+      footerMessage: merged.footerMessage,
+      defaultCurrency: merged.defaultCurrency,
+      defaultTaxRate: merged.defaultTaxRate,
+      defaultTaxEnabled: merged.defaultTaxEnabled,
+      defaultPaymentTerms: merged.defaultPaymentTerms,
+      showPaymentQr: merged.showPaymentQr,
+      qrMode: merged.qrMode,
+      customQrUrl: merged.customQrUrl,
+      qrCaption: merged.qrCaption,
+      adminPasswordHash: merged.adminPasswordHash,
+      adminPasswordSalt: merged.adminPasswordSalt,
+    },
+  });
 
-  const store = await readStore();
-  store.settings = merged;
-  await writeStore(store);
-  return merged;
+  return {
+    ...merged,
+    updatedAt: record.updatedAt.toISOString(),
+  };
 }
 
-/**
- * Verify admin password: checks settings first, then env variable ADMIN_PASSWORD,
- * then default initial password "sbx2026".
- */
-export async function verifyAdminPassword(password: string): Promise<boolean> {
-  const settings = await getStudioSettings();
-
-  // 1. If password set in settings DB
-  if (settings.adminPasswordHash && settings.adminPasswordSalt) {
-    return verifyPassword(password, settings.adminPasswordHash, settings.adminPasswordSalt);
-  }
-
-  // 2. If environment variable ADMIN_PASSWORD is set
-  const envPassword = process.env.ADMIN_PASSWORD;
-  if (envPassword) {
-    return password === envPassword;
-  }
-
-  // 3. Initial default password for immediate first-time editor login
-  return password === "sbx2026" || password === "admin";
-}
-
-/**
- * Set a new admin password in StudioSettings.
- */
 export async function setAdminPassword(newPassword: string): Promise<void> {
   const { hash, salt } = hashPassword(newPassword);
-  await updateStudioSettings({
-    adminPasswordHash: hash,
-    adminPasswordSalt: salt,
+  await prisma.studioSettings.upsert({
+    where: { id: "default" },
+    update: {
+      adminPasswordHash: hash,
+      adminPasswordSalt: salt,
+    },
+    create: {
+      id: "default",
+      adminPasswordHash: hash,
+      adminPasswordSalt: salt,
+      studioName: DEFAULT_SETTINGS.studioName,
+    },
   });
+}
+
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  try {
+    const settings = await prisma.studioSettings.findUnique({
+      where: { id: "default" },
+      select: { adminPasswordHash: true, adminPasswordSalt: true },
+    });
+
+    if (settings?.adminPasswordHash && settings?.adminPasswordSalt) {
+      return verifyPassword(password, settings.adminPasswordHash, settings.adminPasswordSalt);
+    }
+  } catch (err) {
+    console.warn("verifyAdminPassword database check failed, checking env", err);
+  }
+
+  // Fallback to environment variable ADMIN_PASSWORD
+  const envPassword = process.env.ADMIN_PASSWORD;
+  if (envPassword && envPassword.trim().length > 0) {
+    return password === envPassword.trim();
+  }
+
+  // Development default if no password set anywhere
+  return password === "admin123";
+}
+
+export async function hasAdminPasswordSet(): Promise<boolean> {
+  try {
+    const settings = await prisma.studioSettings.findUnique({
+      where: { id: "default" },
+      select: { adminPasswordHash: true },
+    });
+    if (settings?.adminPasswordHash) return true;
+  } catch {}
+
+  const envPassword = process.env.ADMIN_PASSWORD;
+  return Boolean(envPassword && envPassword.trim().length > 0);
 }
 
 // ----------------------------------------------------
 // Clients Management
 // ----------------------------------------------------
 
-export async function getClients(): Promise<Client[]> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      const records = await prisma.client.findMany({ orderBy: { name: "asc" } });
-      return records.map((r: any) => ({
+export async function getClients(query?: string): Promise<Client[]> {
+  try {
+    const where: any = {};
+    if (query && query.trim()) {
+      const q = query.trim();
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { company: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const records = await prisma.client.findMany({
+      where,
+      orderBy: { name: "asc" },
+    });
+
+    if (records.length === 0 && !query) {
+      // Seed default clients
+      await Promise.all(
+        DEFAULT_CLIENTS.map((c) =>
+          prisma.client.upsert({
+            where: { id: c.id },
+            update: {},
+            create: {
+              id: c.id,
+              name: c.name,
+              company: c.company || null,
+              email: c.email || null,
+              phone: c.phone || null,
+              address: c.address || null,
+              country: c.country || "India",
+              notes: c.notes || null,
+            },
+          })
+        )
+      );
+      const seeded = await prisma.client.findMany({ orderBy: { name: "asc" } });
+      return seeded.map((r) => ({
         id: r.id,
         name: r.name,
         company: r.company || "",
@@ -495,83 +471,107 @@ export async function getClients(): Promise<Client[]> {
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
       }));
-    } catch {}
-  }
+    }
 
-  const store = await readStore();
-  return store.clients.sort((a, b) => a.name.localeCompare(b.name));
+    return records.map((r) => ({
+      id: r.id,
+      name: r.name,
+      company: r.company || "",
+      email: r.email || "",
+      phone: r.phone || "",
+      address: r.address || "",
+      country: r.country || "India",
+      notes: r.notes || "",
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
+  } catch (err) {
+    console.warn("Prisma getClients failed:", err);
+    return DEFAULT_CLIENTS;
+  }
 }
 
 export async function getClientById(id: string): Promise<Client | null> {
-  const clients = await getClients();
-  return clients.find((c) => c.id === id) || null;
+  try {
+    const rec = await prisma.client.findUnique({ where: { id } });
+    if (!rec) return null;
+    return {
+      id: rec.id,
+      name: rec.name,
+      company: rec.company || "",
+      email: rec.email || "",
+      phone: rec.phone || "",
+      address: rec.address || "",
+      country: rec.country || "India",
+      notes: rec.notes || "",
+      createdAt: rec.createdAt.toISOString(),
+      updatedAt: rec.updatedAt.toISOString(),
+    };
+  } catch {
+    return null;
+  }
 }
 
-export async function saveClient(clientData: Partial<Client>): Promise<Client> {
-  const now = new Date().toISOString();
-  const id = clientData.id || `cli_${crypto.randomBytes(6).toString("hex")}`;
-  const client: Client = {
-    id,
-    name: (clientData.name || "").trim(),
-    company: (clientData.company || "").trim(),
-    email: (clientData.email || "").trim(),
-    phone: (clientData.phone || "").trim(),
-    address: (clientData.address || "").trim(),
-    country: (clientData.country || "India").trim(),
-    notes: (clientData.notes || "").trim(),
-    createdAt: clientData.createdAt || now,
-    updatedAt: now,
+export async function saveClient(data: Partial<Client>): Promise<Client> {
+  const name = (data.name || "").trim();
+  if (!name) throw new Error("Client name is required");
+
+  if (data.id) {
+    const updated = await prisma.client.update({
+      where: { id: data.id },
+      data: {
+        name,
+        company: (data.company || "").trim() || null,
+        email: (data.email || "").trim() || null,
+        phone: (data.phone || "").trim() || null,
+        address: (data.address || "").trim() || null,
+        country: (data.country || "India").trim(),
+        notes: (data.notes || "").trim() || null,
+      },
+    });
+    return {
+      id: updated.id,
+      name: updated.name,
+      company: updated.company || "",
+      email: updated.email || "",
+      phone: updated.phone || "",
+      address: updated.address || "",
+      country: updated.country || "India",
+      notes: updated.notes || "",
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  }
+
+  // Create new client
+  const created = await prisma.client.create({
+    data: {
+      name,
+      company: (data.company || "").trim() || null,
+      email: (data.email || "").trim() || null,
+      phone: (data.phone || "").trim() || null,
+      address: (data.address || "").trim() || null,
+      country: (data.country || "India").trim(),
+      notes: (data.notes || "").trim() || null,
+    },
+  });
+
+  return {
+    id: created.id,
+    name: created.name,
+    company: created.company || "",
+    email: created.email || "",
+    phone: created.phone || "",
+    address: created.address || "",
+    country: created.country || "India",
+    notes: created.notes || "",
+    createdAt: created.createdAt.toISOString(),
+    updatedAt: created.updatedAt.toISOString(),
   };
-
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      await prisma.client.upsert({
-        where: { id },
-        update: {
-          name: client.name,
-          company: client.company,
-          email: client.email,
-          phone: client.phone,
-          address: client.address,
-          country: client.country,
-          notes: client.notes,
-        },
-        create: {
-          id: client.id,
-          name: client.name,
-          company: client.company,
-          email: client.email,
-          phone: client.phone,
-          address: client.address,
-          country: client.country,
-          notes: client.notes,
-        },
-      });
-    } catch {}
-  }
-
-  const store = await readStore();
-  const existingIdx = store.clients.findIndex((c) => c.id === id);
-  if (existingIdx >= 0) {
-    store.clients[existingIdx] = client;
-  } else {
-    store.clients.push(client);
-  }
-  await writeStore(store);
-  return client;
 }
 
 export async function deleteClient(id: string): Promise<void> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      await prisma.client.delete({ where: { id } });
-    } catch {}
-  }
-  const store = await readStore();
-  store.clients = store.clients.filter((c) => c.id !== id);
-  await writeStore(store);
+  await prisma.client.delete({ where: { id } });
 }
 
 // ----------------------------------------------------
@@ -579,92 +579,125 @@ export async function deleteClient(id: string): Promise<void> {
 // ----------------------------------------------------
 
 export async function getServices(): Promise<ServicePreset[]> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      const records = await prisma.servicePreset.findMany({ orderBy: { order: "asc" } });
-      if (records.length > 0) {
-        return records.map((r: any) => ({
-          id: r.id,
-          name: r.name,
-          description: r.description || "",
-          defaultUnit: r.defaultUnit,
-          defaultPrice: r.defaultPrice,
-          currency: (r.currency as any) || "INR",
-          order: r.order,
-          createdAt: r.createdAt.toISOString(),
-          updatedAt: r.updatedAt.toISOString(),
-        }));
-      }
-    } catch {}
-  }
+  try {
+    const records = await prisma.servicePreset.findMany({ orderBy: { order: "asc" } });
+    if (records.length === 0) {
+      // Seed default service presets
+      await Promise.all(
+        DEFAULT_SERVICES.map((s) =>
+          prisma.servicePreset.upsert({
+            where: { id: s.id },
+            update: {},
+            create: {
+              id: s.id,
+              name: s.name,
+              description: s.description || null,
+              defaultUnit: s.defaultUnit,
+              defaultPrice: s.defaultPrice,
+              currency: s.currency,
+              order: s.order,
+            },
+          })
+        )
+      );
+      const seeded = await prisma.servicePreset.findMany({ orderBy: { order: "asc" } });
+      return seeded.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description || "",
+        defaultUnit: r.defaultUnit,
+        defaultPrice: r.defaultPrice,
+        currency: (r.currency as any) || "INR",
+        order: r.order,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      }));
+    }
 
-  const store = await readStore();
-  return store.services.sort((a, b) => a.order - b.order);
+    return records.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description || "",
+      defaultUnit: r.defaultUnit,
+      defaultPrice: r.defaultPrice,
+      currency: (r.currency as any) || "INR",
+      order: r.order,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
+  } catch (err) {
+    console.warn("Prisma getServices failed:", err);
+    return DEFAULT_SERVICES;
+  }
 }
 
-export async function saveService(serviceData: Partial<ServicePreset>): Promise<ServicePreset> {
-  const now = new Date().toISOString();
-  const id = serviceData.id || `srv_${crypto.randomBytes(6).toString("hex")}`;
-  const srv: ServicePreset = {
-    id,
-    name: (serviceData.name || "").trim(),
-    description: (serviceData.description || "").trim(),
-    defaultUnit: (serviceData.defaultUnit || "video").trim(),
-    defaultPrice: Math.max(0, Math.round(Number(serviceData.defaultPrice) || 0)),
-    currency: serviceData.currency || "INR",
-    order: Number(serviceData.order) || 0,
-    createdAt: serviceData.createdAt || now,
-    updatedAt: now,
+export async function getServicePresets(): Promise<ServicePreset[]> {
+  return getServices();
+}
+
+export async function saveService(data: Partial<ServicePreset>): Promise<ServicePreset> {
+  const name = (data.name || "").trim();
+  if (!name) throw new Error("Service name is required");
+
+  if (data.id) {
+    const updated = await prisma.servicePreset.update({
+      where: { id: data.id },
+      data: {
+        name,
+        description: (data.description || "").trim() || null,
+        defaultUnit: (data.defaultUnit || "video").trim(),
+        defaultPrice: Math.round(Number(data.defaultPrice) || 0),
+        currency: data.currency || "INR",
+        order: Number(data.order) || 0,
+      },
+    });
+    return {
+      id: updated.id,
+      name: updated.name,
+      description: updated.description || "",
+      defaultUnit: updated.defaultUnit,
+      defaultPrice: updated.defaultPrice,
+      currency: (updated.currency as any) || "INR",
+      order: updated.order,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  }
+
+  const created = await prisma.servicePreset.create({
+    data: {
+      name,
+      description: (data.description || "").trim() || null,
+      defaultUnit: (data.defaultUnit || "video").trim(),
+      defaultPrice: Math.round(Number(data.defaultPrice) || 0),
+      currency: data.currency || "INR",
+      order: Number(data.order) || 0,
+    },
+  });
+
+  return {
+    id: created.id,
+    name: created.name,
+    description: created.description || "",
+    defaultUnit: created.defaultUnit,
+    defaultPrice: created.defaultPrice,
+    currency: (created.currency as any) || "INR",
+    order: created.order,
+    createdAt: created.createdAt.toISOString(),
+    updatedAt: created.updatedAt.toISOString(),
   };
+}
 
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      await prisma.servicePreset.upsert({
-        where: { id },
-        update: {
-          name: srv.name,
-          description: srv.description,
-          defaultUnit: srv.defaultUnit,
-          defaultPrice: srv.defaultPrice,
-          currency: srv.currency,
-          order: srv.order,
-        },
-        create: {
-          id: srv.id,
-          name: srv.name,
-          description: srv.description,
-          defaultUnit: srv.defaultUnit,
-          defaultPrice: srv.defaultPrice,
-          currency: srv.currency,
-          order: srv.order,
-        },
-      });
-    } catch {}
-  }
-
-  const store = await readStore();
-  const existingIdx = store.services.findIndex((s) => s.id === id);
-  if (existingIdx >= 0) {
-    store.services[existingIdx] = srv;
-  } else {
-    store.services.push(srv);
-  }
-  await writeStore(store);
-  return srv;
+export async function saveServicePreset(data: Partial<ServicePreset>): Promise<ServicePreset> {
+  return saveService(data);
 }
 
 export async function deleteService(id: string): Promise<void> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      await prisma.servicePreset.delete({ where: { id } });
-    } catch {}
-  }
-  const store = await readStore();
-  store.services = store.services.filter((s) => s.id !== id);
-  await writeStore(store);
+  await prisma.servicePreset.delete({ where: { id } });
+}
+
+export async function deleteServicePreset(id: string): Promise<void> {
+  return deleteService(id);
 }
 
 // ----------------------------------------------------
@@ -672,23 +705,33 @@ export async function deleteService(id: string): Promise<void> {
 // ----------------------------------------------------
 
 /**
- * Auto-generate next invoice number: SBX-YYYY-001 (resets yearly)
+ * Preview next invoice number without incrementing sequence: SBX-YYYY-001
  */
 export async function getNextInvoiceNumber(targetYear?: number): Promise<string> {
   const year = targetYear || new Date().getFullYear();
-  const invoices = await getInvoices();
+  try {
+    const counter = await prisma.invoiceCounter.findUnique({
+      where: { year },
+    });
 
-  let maxSeq = 0;
-  for (const inv of invoices) {
-    const parsed = parseInvoiceNumber(inv.number);
-    if (parsed && parsed.year === year) {
-      if (parsed.sequence > maxSeq) {
+    const invoices = await prisma.invoice.findMany({
+      where: { number: { startsWith: `SBX-${year}-` } },
+      select: { number: true },
+    });
+
+    let maxSeq = counter?.lastCount || 0;
+    for (const inv of invoices) {
+      const parsed = parseInvoiceNumber(inv.number);
+      if (parsed && parsed.year === year && parsed.sequence > maxSeq) {
         maxSeq = parsed.sequence;
       }
     }
-  }
 
-  return formatInvoiceNumber(year, maxSeq + 1);
+    return formatInvoiceNumber(year, maxSeq + 1);
+  } catch (err) {
+    console.warn("getNextInvoiceNumber error, returning fallback:", err);
+    return formatInvoiceNumber(year, 1);
+  }
 }
 
 export async function getInvoices(filters?: {
@@ -696,50 +739,14 @@ export async function getInvoices(filters?: {
   status?: string;
   sort?: string;
 }): Promise<Invoice[]> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      const records = await prisma.invoice.findMany({
-        include: { items: { orderBy: { order: "asc" } } },
-        orderBy: { date: "desc" },
-      });
-      if (records && records.length > 0) {
-        let list = records.map(mapPrismaInvoice);
-        if (filters?.query) {
-          const q = filters.query.toLowerCase().trim();
-          list = list.filter(
-            (inv: Invoice) =>
-              inv.number.toLowerCase().includes(q) ||
-              inv.clientName.toLowerCase().includes(q) ||
-              (inv.clientCompany && inv.clientCompany.toLowerCase().includes(q)) ||
-              (inv.clientEmail && inv.clientEmail.toLowerCase().includes(q))
-          );
-        }
-        if (filters?.status && filters.status !== "All") {
-          list = list.filter((inv: Invoice) => inv.status === filters.status);
-        }
-        const sort = filters?.sort || "date-desc";
-        list.sort((a: Invoice, b: Invoice) => {
-          if (sort === "date-desc") return new Date(b.date).getTime() - new Date(a.date).getTime();
-          if (sort === "date-asc") return new Date(a.date).getTime() - new Date(b.date).getTime();
-          if (sort === "due-asc") return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-          if (sort === "amount-desc") return b.grandTotal - a.grandTotal;
-          if (sort === "amount-asc") return a.grandTotal - b.grandTotal;
-          if (sort === "number-desc") return b.number.localeCompare(a.number);
-          if (sort === "number-asc") return a.number.localeCompare(b.number);
-          return 0;
-        });
-        return list;
-      }
-    } catch (e) {
-      console.warn("Prisma getInvoices failed, falling back to JSON store", e);
-    }
-  }
+  const records = await prisma.invoice.findMany({
+    include: { items: { orderBy: { order: "asc" } } },
+    orderBy: { date: "desc" },
+  });
 
-  const store = await readStore();
-  let list = [...store.invoices];
+  let list = records.map(mapPrismaInvoice);
 
-  // Refresh computed overdue status on read
+  // Compute status against due date
   list = list.map((inv) => {
     const computed = getComputedStatus(inv.status, inv.dueDate);
     return computed !== inv.status ? { ...inv, status: computed } : inv;
@@ -760,7 +767,6 @@ export async function getInvoices(filters?: {
     list = list.filter((inv) => inv.status === filters.status);
   }
 
-  // Sort
   const sort = filters?.sort || "date-desc";
   list.sort((a, b) => {
     if (sort === "date-desc") return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -777,209 +783,184 @@ export async function getInvoices(filters?: {
 }
 
 export async function getInvoiceById(id: string): Promise<Invoice | null> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      const rec = await prisma.invoice.findUnique({
-        where: { id },
-        include: { items: { orderBy: { order: "asc" } } },
-      });
-      if (rec) return mapPrismaInvoice(rec);
-    } catch {}
-  }
-
-  const invoices = await getInvoices();
-  const found = invoices.find((inv) => inv.id === id);
-  if (!found) return null;
-  return found;
+  const rec = await prisma.invoice.findUnique({
+    where: { id },
+    include: { items: { orderBy: { order: "asc" } } },
+  });
+  if (!rec) return null;
+  return mapPrismaInvoice(rec);
 }
 
 export async function getInvoiceByNumber(number: string): Promise<Invoice | null> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      const rec = await prisma.invoice.findUnique({
-        where: { number },
-        include: { items: { orderBy: { order: "asc" } } },
-      });
-      if (rec) return mapPrismaInvoice(rec);
-    } catch {}
-  }
-
-  const invoices = await getInvoices();
-  return invoices.find((inv) => inv.number.toLowerCase() === number.toLowerCase()) || null;
+  const rec = await prisma.invoice.findUnique({
+    where: { number },
+    include: { items: { orderBy: { order: "asc" } } },
+  });
+  if (!rec) return null;
+  return mapPrismaInvoice(rec);
 }
 
 export async function getInvoiceByPublicToken(token: string): Promise<Invoice | null> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      const rec = await prisma.invoice.findUnique({
-        where: { publicToken: token },
-        include: { items: { orderBy: { order: "asc" } } },
-      });
-      if (rec && rec.publicLinkEnabled) {
-        return mapPrismaInvoice(rec);
-      }
-    } catch {}
-  }
-
-  const invoices = await getInvoices();
-  const found = invoices.find((inv) => inv.publicToken === token);
-  if (!found || !found.publicLinkEnabled) return null;
-  return found;
+  const rec = await prisma.invoice.findUnique({
+    where: { publicToken: token },
+    include: { items: { orderBy: { order: "asc" } } },
+  });
+  if (!rec || !rec.publicLinkEnabled) return null;
+  return mapPrismaInvoice(rec);
 }
 
+/**
+ * Creates an invoice inside an atomic database transaction.
+ * Generates unique sequential number (SBX-YYYY-001) row-locked by InvoiceCounter.
+ */
 export async function createInvoice(data: Partial<Invoice>): Promise<Invoice> {
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
   const id = `inv_${crypto.randomBytes(8).toString("hex")}`;
   const publicToken = crypto.randomBytes(16).toString("hex");
 
-  const number = (data.number ? data.number.trim() : "") || (await getNextInvoiceNumber());
+  const invoiceDate = data.date ? new Date(data.date) : now;
+  const year = isNaN(invoiceDate.getFullYear()) ? now.getFullYear() : invoiceDate.getFullYear();
 
-  // Verify unique invoice number
-  const existingInvoices = await getInvoices();
-  const isDuplicate = existingInvoices.some(
-    (inv) => inv.number.toLowerCase() === number.toLowerCase()
-  );
-  if (isDuplicate) {
-    throw new Error(`Invoice number "${number}" already exists. Please choose a unique invoice number.`);
-  }
-  const totals = calculateInvoiceTotals(data);
+  return await prisma.$transaction(async (tx) => {
+    let invoiceNumber = (data.number || "").trim();
 
-  // Compute status
-  let status = data.status || "Draft";
-  status = getComputedStatus(status, data.dueDate || now);
-
-  const invoice: Invoice = {
-    id,
-    number,
-    clientId: data.clientId || null,
-    clientName: (data.clientName || "").trim(),
-    clientCompany: (data.clientCompany || "").trim(),
-    clientEmail: (data.clientEmail || "").trim(),
-    clientPhone: (data.clientPhone || "").trim(),
-    clientAddress: (data.clientAddress || "").trim(),
-    clientCountry: (data.clientCountry || "India").trim(),
-    date: data.date || now.split("T")[0],
-    dueDate: data.dueDate || now.split("T")[0],
-    currency: data.currency || "INR",
-    status,
-    paymentInstructions: data.paymentInstructions || "",
-    footerNotes: data.footerNotes || "",
-    subtotal: totals.subtotal,
-    discountType: data.discountType || "percent",
-    discountValue: Math.round(Number(data.discountValue) || 0),
-    discountAmount: totals.discountAmount,
-    taxEnabled: Boolean(data.taxEnabled),
-    taxRate: Math.round(Number(data.taxRate) || 0),
-    taxAmount: totals.taxAmount,
-    extraCharges: totals.extraCharges,
-    extraChargesLabel: data.extraChargesLabel || "Extra / Rush Fee",
-    grandTotal: totals.grandTotal,
-    advancePaid: totals.advancePaid,
-    balanceDue: totals.balanceDue,
-    publicToken,
-    publicLinkEnabled: data.publicLinkEnabled ?? true,
-    showPaymentQr: data.showPaymentQr ?? true,
-    sentAt: data.status === "Sent" ? now : null,
-    createdAt: now,
-    updatedAt: now,
-    items: totals.items,
-  };
-
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      const created = await prisma.invoice.create({
-        data: {
-          id: invoice.id,
-          number: invoice.number,
-          clientId: invoice.clientId || null,
-          clientName: invoice.clientName,
-          clientCompany: invoice.clientCompany,
-          clientEmail: invoice.clientEmail,
-          clientPhone: invoice.clientPhone,
-          clientAddress: invoice.clientAddress,
-          clientCountry: invoice.clientCountry,
-          date: new Date(invoice.date),
-          dueDate: new Date(invoice.dueDate),
-          currency: invoice.currency,
-          status: invoice.status,
-          paymentInstructions: invoice.paymentInstructions,
-          footerNotes: invoice.footerNotes,
-          subtotal: invoice.subtotal,
-          discountType: invoice.discountType,
-          discountValue: invoice.discountValue,
-          discountAmount: invoice.discountAmount,
-          taxEnabled: invoice.taxEnabled,
-          taxRate: invoice.taxRate,
-          taxAmount: invoice.taxAmount,
-          extraCharges: invoice.extraCharges,
-          extraChargesLabel: invoice.extraChargesLabel,
-          grandTotal: invoice.grandTotal,
-          advancePaid: invoice.advancePaid,
-          balanceDue: invoice.balanceDue,
-          publicToken: invoice.publicToken!,
-          publicLinkEnabled: invoice.publicLinkEnabled,
-          showPaymentQr: invoice.showPaymentQr ?? true,
-          sentAt: invoice.sentAt ? new Date(invoice.sentAt) : null,
-          items: {
-            create: invoice.items.map((it, idx) => ({
-              name: it.name,
-              description: it.description || "",
-              quantity: it.quantity,
-              unit: it.unit || "video",
-              unitPrice: it.unitPrice,
-              total: it.total,
-              order: it.order ?? idx,
-            })),
-          },
-        },
-        include: { items: { orderBy: { order: "asc" } } },
+    if (!invoiceNumber) {
+      // Row-lock and atomically increment counter for the given year
+      const counter = await tx.invoiceCounter.upsert({
+        where: { year },
+        update: { lastCount: { increment: 1 } },
+        create: { year, lastCount: 1 },
       });
 
-      if (invoice.clientName) {
-        await saveClient({
-          name: invoice.clientName,
-          company: invoice.clientCompany,
-          email: invoice.clientEmail,
-          phone: invoice.clientPhone,
-          address: invoice.clientAddress,
-          country: invoice.clientCountry,
+      // Guard: Ensure sequence is higher than any pre-existing invoice with SBX-YYYY-XXX
+      const existingInvoices = await tx.invoice.findMany({
+        where: { number: { startsWith: `SBX-${year}-` } },
+        select: { number: true },
+      });
+
+      let maxSeq = 0;
+      for (const inv of existingInvoices) {
+        const parsed = parseInvoiceNumber(inv.number);
+        if (parsed && parsed.year === year && parsed.sequence > maxSeq) {
+          maxSeq = parsed.sequence;
+        }
+      }
+
+      let seq = counter.lastCount;
+      if (seq <= maxSeq) {
+        seq = maxSeq + 1;
+        await tx.invoiceCounter.update({
+          where: { year },
+          data: { lastCount: seq },
         });
       }
 
-      return mapPrismaInvoice(created);
-    } catch (err) {
-      console.warn("Prisma createInvoice failed, falling back to JSON store", err);
-    }
-  }
-
-  const store = await readStore();
-  store.invoices.unshift(invoice);
-  await writeStore(store);
-
-  // Also auto-save client if client name provided and not in client list
-  if (invoice.clientName) {
-    const existingClient = store.clients.find(
-      (c) => c.name.toLowerCase() === invoice.clientName.toLowerCase()
-    );
-    if (!existingClient) {
-      await saveClient({
-        name: invoice.clientName,
-        company: invoice.clientCompany,
-        email: invoice.clientEmail,
-        phone: invoice.clientPhone,
-        address: invoice.clientAddress,
-        country: invoice.clientCountry,
+      invoiceNumber = formatInvoiceNumber(year, seq);
+    } else {
+      // Custom number supplied: check uniqueness in transaction
+      const existing = await tx.invoice.findUnique({
+        where: { number: invoiceNumber },
       });
-    }
-  }
+      if (existing) {
+        throw new Error(`Invoice number "${invoiceNumber}" already exists. Please choose a unique invoice number.`);
+      }
 
-  return invoice;
+      // Synchronize counter if custom number has higher sequence
+      const parsed = parseInvoiceNumber(invoiceNumber);
+      if (parsed && parsed.year === year) {
+        const counter = await tx.invoiceCounter.upsert({
+          where: { year },
+          update: {},
+          create: { year, lastCount: parsed.sequence },
+        });
+        if (counter.lastCount < parsed.sequence) {
+          await tx.invoiceCounter.update({
+            where: { year },
+            data: { lastCount: parsed.sequence },
+          });
+        }
+      }
+    }
+
+    const totals = calculateInvoiceTotals(data);
+    let status = data.status || "Draft";
+    status = getComputedStatus(status, data.dueDate || nowIso);
+
+    const created = await tx.invoice.create({
+      data: {
+        id,
+        number: invoiceNumber,
+        clientId: data.clientId || null,
+        clientName: (data.clientName || "").trim(),
+        clientCompany: (data.clientCompany || "").trim() || null,
+        clientEmail: (data.clientEmail || "").trim() || null,
+        clientPhone: (data.clientPhone || "").trim() || null,
+        clientAddress: (data.clientAddress || "").trim() || null,
+        clientCountry: (data.clientCountry || "India").trim() || "India",
+        date: new Date(data.date || nowIso.split("T")[0]),
+        dueDate: new Date(data.dueDate || nowIso.split("T")[0]),
+        currency: data.currency || "INR",
+        status,
+        paymentInstructions: data.paymentInstructions || null,
+        footerNotes: data.footerNotes || null,
+        subtotal: totals.subtotal,
+        discountType: data.discountType || "percent",
+        discountValue: Math.round(Number(data.discountValue) || 0),
+        discountAmount: totals.discountAmount,
+        taxEnabled: Boolean(data.taxEnabled),
+        taxRate: Math.round(Number(data.taxRate) || 0),
+        taxAmount: totals.taxAmount,
+        extraCharges: totals.extraCharges,
+        extraChargesLabel: data.extraChargesLabel || "Extra / Rush Fee",
+        grandTotal: totals.grandTotal,
+        advancePaid: totals.advancePaid,
+        balanceDue: totals.balanceDue,
+        publicToken,
+        publicLinkEnabled: data.publicLinkEnabled ?? true,
+        showPaymentQr: data.showPaymentQr ?? true,
+        sentAt: data.status === "Sent" ? now : null,
+        items: {
+          create: totals.items.map((it, idx) => ({
+            name: it.name,
+            description: it.description || null,
+            quantity: it.quantity,
+            unit: it.unit || "video",
+            unitPrice: it.unitPrice,
+            total: it.total,
+            order: it.order ?? idx,
+          })),
+        },
+      },
+      include: { items: { orderBy: { order: "asc" } } },
+    });
+
+    // Auto-save client if new
+    if (created.clientName) {
+      const existingClient = await tx.client.findFirst({
+        where: { name: { equals: created.clientName, mode: "insensitive" } },
+      });
+      if (!existingClient) {
+        await tx.client.create({
+          data: {
+            name: created.clientName,
+            company: created.clientCompany || null,
+            email: created.clientEmail || null,
+            phone: created.clientPhone || null,
+            address: created.clientAddress || null,
+            country: created.clientCountry || "India",
+          },
+        });
+      }
+    }
+
+    return mapPrismaInvoice(created);
+  });
 }
 
+/**
+ * Updates an invoice and its items atomically inside a database transaction.
+ */
 export async function updateInvoice(
   id: string,
   data: Partial<Invoice>
@@ -990,199 +971,151 @@ export async function updateInvoice(
   }
 
   const targetNumber = (data.number ? data.number.trim() : existing.number);
-  if (targetNumber.toLowerCase() !== existing.number.toLowerCase()) {
-    const allInvoices = await getInvoices();
-    const isDuplicate = allInvoices.some(
-      (inv) => inv.id !== id && inv.number.toLowerCase() === targetNumber.toLowerCase()
-    );
-    if (isDuplicate) {
-      throw new Error(`Invoice number "${targetNumber}" already exists. Please choose a unique invoice number.`);
-    }
-  }
 
-  const now = new Date().toISOString();
-  const mergedData = { ...existing, ...data };
-  const totals = calculateInvoiceTotals(mergedData);
-
-  let status = data.status || existing.status;
-  status = getComputedStatus(status, mergedData.dueDate);
-
-  const updated: Invoice = {
-    ...existing,
-    ...data,
-    id: existing.id,
-    number: (data.number || existing.number).trim(),
-    clientName: (data.clientName ?? existing.clientName).trim(),
-    clientCompany: (data.clientCompany ?? existing.clientCompany).trim(),
-    clientEmail: (data.clientEmail ?? existing.clientEmail).trim(),
-    clientPhone: (data.clientPhone ?? existing.clientPhone).trim(),
-    clientAddress: (data.clientAddress ?? existing.clientAddress).trim(),
-    clientCountry: (data.clientCountry ?? existing.clientCountry).trim(),
-    date: data.date || existing.date,
-    dueDate: data.dueDate || existing.dueDate,
-    currency: data.currency || existing.currency,
-    status,
-    paymentInstructions: data.paymentInstructions ?? existing.paymentInstructions,
-    footerNotes: data.footerNotes ?? existing.footerNotes,
-    subtotal: totals.subtotal,
-    discountType: data.discountType || existing.discountType,
-    discountValue: Math.round(Number(data.discountValue ?? existing.discountValue)),
-    discountAmount: totals.discountAmount,
-    taxEnabled: Boolean(data.taxEnabled ?? existing.taxEnabled),
-    taxRate: Math.round(Number(data.taxRate ?? existing.taxRate)),
-    taxAmount: totals.taxAmount,
-    extraCharges: totals.extraCharges,
-    extraChargesLabel: data.extraChargesLabel ?? existing.extraChargesLabel,
-    grandTotal: totals.grandTotal,
-    advancePaid: totals.advancePaid,
-    balanceDue: totals.balanceDue,
-    publicToken: existing.publicToken || crypto.randomBytes(16).toString("hex"),
-    publicLinkEnabled: data.publicLinkEnabled ?? existing.publicLinkEnabled,
-    showPaymentQr: data.showPaymentQr ?? existing.showPaymentQr ?? true,
-    sentAt: status === "Sent" && !existing.sentAt ? now : existing.sentAt,
-    updatedAt: now,
-    items: totals.items,
-  };
-
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      await prisma.$transaction([
-        prisma.invoiceItem.deleteMany({ where: { invoiceId: id } }),
-        prisma.invoice.update({
-          where: { id },
-          data: {
-            number: updated.number,
-            clientId: updated.clientId || null,
-            clientName: updated.clientName,
-            clientCompany: updated.clientCompany,
-            clientEmail: updated.clientEmail,
-            clientPhone: updated.clientPhone,
-            clientAddress: updated.clientAddress,
-            clientCountry: updated.clientCountry,
-            date: new Date(updated.date),
-            dueDate: new Date(updated.dueDate),
-            currency: updated.currency,
-            status: updated.status,
-            paymentInstructions: updated.paymentInstructions,
-            footerNotes: updated.footerNotes,
-            subtotal: updated.subtotal,
-            discountType: updated.discountType,
-            discountValue: updated.discountValue,
-            discountAmount: updated.discountAmount,
-            taxEnabled: updated.taxEnabled,
-            taxRate: updated.taxRate,
-            taxAmount: updated.taxAmount,
-            extraCharges: updated.extraCharges,
-            extraChargesLabel: updated.extraChargesLabel,
-            grandTotal: updated.grandTotal,
-            advancePaid: updated.advancePaid,
-            balanceDue: updated.balanceDue,
-            publicToken: updated.publicToken,
-            publicLinkEnabled: updated.publicLinkEnabled,
-            showPaymentQr: updated.showPaymentQr ?? true,
-            sentAt: updated.sentAt ? new Date(updated.sentAt) : null,
-            items: {
-              create: updated.items.map((it, idx) => ({
-                name: it.name,
-                description: it.description || "",
-                quantity: it.quantity,
-                unit: it.unit || "video",
-                unitPrice: it.unitPrice,
-                total: it.total,
-                order: it.order ?? idx,
-              })),
-            },
-          },
-        }),
-      ]);
-      const fresh = await prisma.invoice.findUnique({
-        where: { id },
-        include: { items: { orderBy: { order: "asc" } } },
+  return await prisma.$transaction(async (tx) => {
+    if (targetNumber.toLowerCase() !== existing.number.toLowerCase()) {
+      const isDuplicate = await tx.invoice.findFirst({
+        where: {
+          id: { not: id },
+          number: { equals: targetNumber, mode: "insensitive" },
+        },
       });
-      if (fresh) return mapPrismaInvoice(fresh);
-    } catch (err) {
-      console.warn("Prisma updateInvoice failed, falling back to JSON store", err);
+      if (isDuplicate) {
+        throw new Error(`Invoice number "${targetNumber}" already exists. Please choose a unique invoice number.`);
+      }
     }
-  }
 
-  const store = await readStore();
-  const idx = store.invoices.findIndex((inv) => inv.id === id);
-  if (idx >= 0) {
-    store.invoices[idx] = updated;
-  } else {
-    store.invoices.unshift(updated);
-  }
-  await writeStore(store);
+    const mergedData = { ...existing, ...data };
+    const totals = calculateInvoiceTotals(mergedData);
 
-  return updated;
+    let status = data.status || existing.status;
+    status = getComputedStatus(status, mergedData.dueDate);
+
+    await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
+
+    const updated = await tx.invoice.update({
+      where: { id },
+      data: {
+        number: targetNumber,
+        clientId: data.clientId !== undefined ? data.clientId : existing.clientId,
+        clientName: (data.clientName ?? existing.clientName).trim(),
+        clientCompany: (data.clientCompany ?? existing.clientCompany).trim() || null,
+        clientEmail: (data.clientEmail ?? existing.clientEmail).trim() || null,
+        clientPhone: (data.clientPhone ?? existing.clientPhone).trim() || null,
+        clientAddress: (data.clientAddress ?? existing.clientAddress).trim() || null,
+        clientCountry: (data.clientCountry ?? existing.clientCountry).trim() || "India",
+        date: new Date(data.date || existing.date),
+        dueDate: new Date(data.dueDate || existing.dueDate),
+        currency: data.currency || existing.currency,
+        status,
+        paymentInstructions: data.paymentInstructions !== undefined ? data.paymentInstructions : existing.paymentInstructions,
+        footerNotes: data.footerNotes !== undefined ? data.footerNotes : existing.footerNotes,
+        subtotal: totals.subtotal,
+        discountType: data.discountType || existing.discountType,
+        discountValue: Math.round(Number(data.discountValue ?? existing.discountValue)),
+        discountAmount: totals.discountAmount,
+        taxEnabled: Boolean(data.taxEnabled ?? existing.taxEnabled),
+        taxRate: Math.round(Number(data.taxRate ?? existing.taxRate)),
+        taxAmount: totals.taxAmount,
+        extraCharges: totals.extraCharges,
+        extraChargesLabel: data.extraChargesLabel ?? existing.extraChargesLabel,
+        grandTotal: totals.grandTotal,
+        advancePaid: totals.advancePaid,
+        balanceDue: totals.balanceDue,
+        publicLinkEnabled: data.publicLinkEnabled ?? existing.publicLinkEnabled,
+        showPaymentQr: data.showPaymentQr ?? existing.showPaymentQr ?? true,
+        sentAt: status === "Sent" && !existing.sentAt ? new Date() : existing.sentAt ? new Date(existing.sentAt) : null,
+        items: {
+          create: totals.items.map((it, idx) => ({
+            name: it.name,
+            description: it.description || null,
+            quantity: it.quantity,
+            unit: it.unit || "video",
+            unitPrice: it.unitPrice,
+            total: it.total,
+            order: it.order ?? idx,
+          })),
+        },
+      },
+      include: { items: { orderBy: { order: "asc" } } },
+    });
+
+    return mapPrismaInvoice(updated);
+  });
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
-  const prisma = await getPrismaClient();
-  if (prisma) {
-    try {
-      await prisma.invoice.delete({ where: { id } });
-    } catch (err) {
-      console.warn("Prisma deleteInvoice failed", err);
-    }
+  await prisma.invoice.delete({ where: { id } });
+}
+
+export const markInvoicePaid = async (id: string) => markInvoiceAsPaid(id);
+
+export async function markInvoiceAsPaid(id: string): Promise<Invoice> {
+  const existing = await getInvoiceById(id);
+  if (!existing) {
+    throw new Error(`Invoice with id ${id} not found`);
   }
-  const store = await readStore();
-  store.invoices = store.invoices.filter((inv) => inv.id !== id);
-  await writeStore(store);
+
+  const updated = await prisma.invoice.update({
+    where: { id },
+    data: {
+      status: "Paid",
+      advancePaid: existing.grandTotal,
+      balanceDue: 0,
+    },
+    include: { items: { orderBy: { order: "asc" } } },
+  });
+
+  return mapPrismaInvoice(updated);
 }
 
 export async function duplicateInvoice(id: string): Promise<Invoice> {
-  const original = await getInvoiceById(id);
-  if (!original) throw new Error("Original invoice not found");
+  const existing = await getInvoiceById(id);
+  if (!existing) {
+    throw new Error(`Invoice with id ${id} not found`);
+  }
 
   const nextNumber = await getNextInvoiceNumber();
-  const today = new Date();
-  const due = new Date();
-  due.setDate(today.getDate() + 7);
+  const today = new Date().toISOString().split("T")[0];
+  const dueDate = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
-  const duplicated = await createInvoice({
-    ...original,
+  const duplicatedData: Partial<Invoice> = {
+    ...existing,
     id: undefined,
     number: nextNumber,
-    date: today.toISOString().split("T")[0],
-    dueDate: due.toISOString().split("T")[0],
+    date: today,
+    dueDate,
     status: "Draft",
     advancePaid: 0,
-    items: original.items.map((it) => ({ ...it, id: undefined })),
-  });
+    sentAt: null,
+    items: existing.items.map((it) => ({ ...it, id: undefined })),
+  };
 
-  return duplicated;
-}
-
-export async function markInvoicePaid(id: string): Promise<Invoice> {
-  const inv = await getInvoiceById(id);
-  if (!inv) throw new Error("Invoice not found");
-
-  return updateInvoice(id, {
-    status: "Paid",
-    advancePaid: inv.grandTotal,
-    balanceDue: 0,
-  });
+  return await createInvoice(duplicatedData);
 }
 
 // ----------------------------------------------------
-// Dashboard Metrics (Phase 2)
+// Analytics & Dashboard Stats
 // ----------------------------------------------------
 
-export interface DashboardStats {
-  totalInvoices: number;
+export type DashboardStats = {
   totalInvoiced: number;
   totalReceived: number;
+  totalRevenue: number;
   totalOutstanding: number;
   totalOverdue: number;
   countOverdue: number;
+  totalInvoices: number;
   currency: string;
-}
+};
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const invoices = await getInvoices();
+  return getInvoicingStats();
+}
+
+export async function getInvoicingStats(): Promise<DashboardStats> {
   const settings = await getStudioSettings();
+  const invoices = await getInvoices();
 
   let totalInvoiced = 0;
   let totalReceived = 0;
@@ -1191,47 +1124,56 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   let countOverdue = 0;
 
   for (const inv of invoices) {
-    if (inv.status === "Cancelled") continue;
-
-    totalInvoiced += inv.grandTotal;
-    totalReceived += inv.advancePaid;
-    totalOutstanding += inv.balanceDue;
-
-    if (inv.status === "Overdue") {
-      countOverdue += 1;
+    if (inv.status !== "Cancelled") {
+      totalInvoiced += inv.grandTotal;
+    }
+    if (inv.status === "Paid") {
+      totalReceived += inv.grandTotal;
+    } else if (inv.status === "Partially Paid") {
+      totalReceived += inv.advancePaid;
+      totalOutstanding += inv.balanceDue;
+    } else if (inv.status === "Overdue") {
+      totalOutstanding += inv.balanceDue;
       totalOverdue += inv.balanceDue;
+      countOverdue += 1;
+    } else if (inv.status !== "Cancelled") {
+      totalOutstanding += inv.balanceDue;
     }
   }
 
   return {
-    totalInvoices: invoices.length,
     totalInvoiced,
     totalReceived,
+    totalRevenue: totalReceived,
     totalOutstanding,
     totalOverdue,
     countOverdue,
+    totalInvoices: invoices.length,
     currency: settings.defaultCurrency,
   };
 }
 
 // ----------------------------------------------------
-// Backup Export & Import (Phase 3)
+// Backup Export & Import (Pure Database)
 // ----------------------------------------------------
 
 export async function exportAllData() {
-  const store = await readStore();
-  // Strip sensitive password hash from backup
-  const safeSettings = { ...store.settings };
+  const settings = await getStudioSettings();
+  const safeSettings = { ...settings };
   delete safeSettings.adminPasswordHash;
   delete safeSettings.adminPasswordSalt;
 
+  const clients = await getClients();
+  const services = await getServices();
+  const invoices = await getInvoices();
+
   return {
-    version: "1.0",
+    version: "2.0",
     exportedAt: new Date().toISOString(),
     settings: safeSettings,
-    clients: store.clients,
-    services: store.services,
-    invoices: store.invoices,
+    clients,
+    services,
+    invoices,
   };
 }
 
@@ -1240,19 +1182,208 @@ export async function importAllData(data: any): Promise<void> {
     throw new Error("Invalid backup data format");
   }
 
-  const current = await readStore();
-  const newStore: InvoicingStoreData = {
-    settings: {
-      ...current.settings,
-      ...(data.settings || {}),
-      // Preserve current admin credentials
-      adminPasswordHash: current.settings.adminPasswordHash,
-      adminPasswordSalt: current.settings.adminPasswordSalt,
-    },
-    clients: Array.isArray(data.clients) ? data.clients : current.clients,
-    services: Array.isArray(data.services) ? data.services : current.services,
-    invoices: Array.isArray(data.invoices) ? data.invoices : current.invoices,
-  };
+  await prisma.$transaction(async (tx) => {
+    // 1. Settings
+    if (data.settings) {
+      await tx.studioSettings.upsert({
+        where: { id: "default" },
+        update: {
+          studioName: data.settings.studioName,
+          logoUrl: data.settings.logoUrl,
+          email: data.settings.email,
+          phone: data.settings.phone,
+          address: data.settings.address,
+          country: data.settings.country,
+          upiId: data.settings.upiId,
+          bankName: data.settings.bankName,
+          bankAccountName: data.settings.bankAccountName,
+          bankAccountNumber: data.settings.bankAccountNumber,
+          bankIfsc: data.settings.bankIfsc,
+          bankSwift: data.settings.bankSwift,
+          footerMessage: data.settings.footerMessage,
+          defaultCurrency: data.settings.defaultCurrency,
+          defaultTaxRate: data.settings.defaultTaxRate,
+          defaultTaxEnabled: data.settings.defaultTaxEnabled,
+          defaultPaymentTerms: data.settings.defaultPaymentTerms,
+          showPaymentQr: data.settings.showPaymentQr,
+          qrMode: data.settings.qrMode,
+          customQrUrl: data.settings.customQrUrl,
+          qrCaption: data.settings.qrCaption,
+        },
+        create: {
+          id: "default",
+          studioName: data.settings.studioName || DEFAULT_SETTINGS.studioName,
+          logoUrl: data.settings.logoUrl,
+          email: data.settings.email,
+          phone: data.settings.phone,
+          address: data.settings.address,
+          country: data.settings.country,
+          upiId: data.settings.upiId,
+          bankName: data.settings.bankName,
+          bankAccountName: data.settings.bankAccountName,
+          bankAccountNumber: data.settings.bankAccountNumber,
+          bankIfsc: data.settings.bankIfsc,
+          bankSwift: data.settings.bankSwift,
+          footerMessage: data.settings.footerMessage,
+          defaultCurrency: data.settings.defaultCurrency || "INR",
+          defaultTaxRate: data.settings.defaultTaxRate || 0,
+          defaultTaxEnabled: data.settings.defaultTaxEnabled || false,
+          defaultPaymentTerms: data.settings.defaultPaymentTerms,
+          showPaymentQr: data.settings.showPaymentQr ?? true,
+          qrMode: data.settings.qrMode || "auto",
+          customQrUrl: data.settings.customQrUrl,
+          qrCaption: data.settings.qrCaption,
+        },
+      });
+    }
 
-  await writeStore(newStore);
+    // 2. Clients
+    if (Array.isArray(data.clients)) {
+      for (const c of data.clients) {
+        if (!c.name) continue;
+        await tx.client.upsert({
+          where: { id: c.id || `cli_${Date.now()}` },
+          update: {
+            name: c.name,
+            company: c.company || null,
+            email: c.email || null,
+            phone: c.phone || null,
+            address: c.address || null,
+            country: c.country || "India",
+            notes: c.notes || null,
+          },
+          create: {
+            id: c.id || undefined,
+            name: c.name,
+            company: c.company || null,
+            email: c.email || null,
+            phone: c.phone || null,
+            address: c.address || null,
+            country: c.country || "India",
+            notes: c.notes || null,
+          },
+        });
+      }
+    }
+
+    // 3. Service Presets
+    if (Array.isArray(data.services)) {
+      for (const s of data.services) {
+        if (!s.name) continue;
+        await tx.servicePreset.upsert({
+          where: { id: s.id || `srv_${Date.now()}` },
+          update: {
+            name: s.name,
+            description: s.description || null,
+            defaultUnit: s.defaultUnit || "video",
+            defaultPrice: Math.round(Number(s.defaultPrice) || 0),
+            currency: s.currency || "INR",
+            order: Number(s.order) || 0,
+          },
+          create: {
+            id: s.id || undefined,
+            name: s.name,
+            description: s.description || null,
+            defaultUnit: s.defaultUnit || "video",
+            defaultPrice: Math.round(Number(s.defaultPrice) || 0),
+            currency: s.currency || "INR",
+            order: Number(s.order) || 0,
+          },
+        });
+      }
+    }
+
+    // 4. Invoices and Items
+    if (Array.isArray(data.invoices)) {
+      for (const inv of data.invoices) {
+        if (!inv.number) continue;
+
+        await tx.invoiceItem.deleteMany({ where: { invoiceId: inv.id } });
+
+        const createdInv = await tx.invoice.upsert({
+          where: { number: inv.number },
+          update: {
+            clientId: inv.clientId || null,
+            clientName: inv.clientName || "",
+            clientCompany: inv.clientCompany || null,
+            clientEmail: inv.clientEmail || null,
+            clientPhone: inv.clientPhone || null,
+            clientAddress: inv.clientAddress || null,
+            clientCountry: inv.clientCountry || "India",
+            date: new Date(inv.date || new Date()),
+            dueDate: new Date(inv.dueDate || new Date()),
+            currency: inv.currency || "INR",
+            status: inv.status || "Draft",
+            paymentInstructions: inv.paymentInstructions || null,
+            footerNotes: inv.footerNotes || null,
+            subtotal: Math.round(Number(inv.subtotal) || 0),
+            discountType: inv.discountType || "percent",
+            discountValue: Math.round(Number(inv.discountValue) || 0),
+            discountAmount: Math.round(Number(inv.discountAmount) || 0),
+            taxEnabled: Boolean(inv.taxEnabled),
+            taxRate: Math.round(Number(inv.taxRate) || 0),
+            taxAmount: Math.round(Number(inv.taxAmount) || 0),
+            extraCharges: Math.round(Number(inv.extraCharges) || 0),
+            extraChargesLabel: inv.extraChargesLabel || null,
+            grandTotal: Math.round(Number(inv.grandTotal) || 0),
+            advancePaid: Math.round(Number(inv.advancePaid) || 0),
+            balanceDue: Math.round(Number(inv.balanceDue) || 0),
+            publicToken: inv.publicToken || crypto.randomBytes(16).toString("hex"),
+            publicLinkEnabled: inv.publicLinkEnabled ?? true,
+            showPaymentQr: inv.showPaymentQr ?? true,
+            sentAt: inv.sentAt ? new Date(inv.sentAt) : null,
+          },
+          create: {
+            id: inv.id || undefined,
+            number: inv.number,
+            clientId: inv.clientId || null,
+            clientName: inv.clientName || "",
+            clientCompany: inv.clientCompany || null,
+            clientEmail: inv.clientEmail || null,
+            clientPhone: inv.clientPhone || null,
+            clientAddress: inv.clientAddress || null,
+            clientCountry: inv.clientCountry || "India",
+            date: new Date(inv.date || new Date()),
+            dueDate: new Date(inv.dueDate || new Date()),
+            currency: inv.currency || "INR",
+            status: inv.status || "Draft",
+            paymentInstructions: inv.paymentInstructions || null,
+            footerNotes: inv.footerNotes || null,
+            subtotal: Math.round(Number(inv.subtotal) || 0),
+            discountType: inv.discountType || "percent",
+            discountValue: Math.round(Number(inv.discountValue) || 0),
+            discountAmount: Math.round(Number(inv.discountAmount) || 0),
+            taxEnabled: Boolean(inv.taxEnabled),
+            taxRate: Math.round(Number(inv.taxRate) || 0),
+            taxAmount: Math.round(Number(inv.taxAmount) || 0),
+            extraCharges: Math.round(Number(inv.extraCharges) || 0),
+            extraChargesLabel: inv.extraChargesLabel || null,
+            grandTotal: Math.round(Number(inv.grandTotal) || 0),
+            advancePaid: Math.round(Number(inv.advancePaid) || 0),
+            balanceDue: Math.round(Number(inv.balanceDue) || 0),
+            publicToken: inv.publicToken || crypto.randomBytes(16).toString("hex"),
+            publicLinkEnabled: inv.publicLinkEnabled ?? true,
+            showPaymentQr: inv.showPaymentQr ?? true,
+            sentAt: inv.sentAt ? new Date(inv.sentAt) : null,
+          },
+        });
+
+        if (Array.isArray(inv.items)) {
+          await tx.invoiceItem.createMany({
+            data: inv.items.map((it: any, idx: number) => ({
+              id: it.id || undefined,
+              invoiceId: createdInv.id,
+              name: it.name || "Item",
+              description: it.description || null,
+              quantity: Math.round(Number(it.quantity) || 1),
+              unit: it.unit || "video",
+              unitPrice: Math.round(Number(it.unitPrice) || 0),
+              total: Math.round(Number(it.total) || 0),
+              order: Number(it.order) ?? idx,
+            })),
+          });
+        }
+      }
+    }
+  });
 }

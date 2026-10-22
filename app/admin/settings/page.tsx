@@ -108,7 +108,7 @@ export default function StudioSettingsPage() {
     }
   };
 
-  const handleCustomQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -122,13 +122,22 @@ export default function StudioSettingsPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setSettings((prev) => (prev ? { ...prev, customQrUrl: result } : prev));
-      showToast("Custom QR code image uploaded!");
-    };
-    reader.readAsDataURL(file);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+
+      setSettings((prev) => (prev ? { ...prev, customQrUrl: data.url } : prev));
+      showToast("Custom QR code image uploaded successfully!");
+    } catch (err: any) {
+      alert("Error uploading QR code: " + err.message);
+    }
   };
 
   const handleImportBackup = async (e: React.FormEvent) => {

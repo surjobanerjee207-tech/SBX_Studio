@@ -135,3 +135,8 @@ model InvoiceItem {
 
   @@index([invoiceId, order])
 }
+
+model InvoiceCounter {
+  year      Int @id
+  lastCount Int @default(0)
+}

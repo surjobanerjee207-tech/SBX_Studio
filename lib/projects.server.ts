@@ -18,9 +18,13 @@ export async function getProjects(): Promise<Project[]> {
 }
 
 export async function saveProjects(newProjects: Project[]): Promise<void> {
-  const dir = path.dirname(DATA_PATH);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(DATA_PATH, JSON.stringify(newProjects, null, 2), "utf-8");
+  try {
+    const dir = path.dirname(DATA_PATH);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(DATA_PATH, JSON.stringify(newProjects, null, 2), "utf-8");
+  } catch (err: any) {
+    console.warn("Could not write projects to disk (read-only filesystem):", err?.message);
+  }
 }
 
 export async function getProjectBySlug(slug: string): Promise<Project | null> {

@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 
 export async function POST(req: Request) {
   try {
@@ -30,31 +28,31 @@ export async function POST(req: Request) {
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Clean filename
     const safeName = file.name
       .toLowerCase()
       .replace(/[^a-z0-9._-]/g, "-")
       .replace(/-+/g, "-");
 
-    const ext = path.extname(safeName) || ".jpg";
-    const nameWithoutExt = path.basename(safeName, ext);
-    const uniqueFileName = `${nameWithoutExt}-${Date.now()}${ext}`;
+    // 1. If Vercel Blob token is configured, upload to Vercel Blob storage
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const { put } = await import("@vercel/blob");
+      const blob = await put(`uploads/${Date.now()}-${safeName}`, file, {
+        access: "public",
+      });
+      return NextResponse.json({ ok: true, url: blob.url });
+    }
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(uploadDir, { recursive: true });
+    // 2. Off-disk fallback when BLOB_READ_WRITE_TOKEN is not set (e.g. local dev):
+    // Convert directly to base64 Data URL so no file is written to the read-only disk
+    const bytes = await file.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString("base64");
+    const dataUrl = `data:${file.type};base64,${base64}`;
 
-    const filePath = path.join(uploadDir, uniqueFileName);
-    await fs.writeFile(filePath, buffer);
-
-    const publicUrl = `/uploads/${uniqueFileName}`;
-    return NextResponse.json({ ok: true, url: publicUrl });
+    return NextResponse.json({ ok: true, url: dataUrl });
   } catch (err: any) {
     console.error("Upload error:", err);
     return NextResponse.json(
-      { error: "Failed to upload file: " + err.message },
+      { error: "Failed to upload file: " + (err.message || "Unknown error") },
       { status: 500 }
     );
   }

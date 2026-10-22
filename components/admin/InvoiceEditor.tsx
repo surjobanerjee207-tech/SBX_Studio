@@ -89,6 +89,9 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
   const [paymentInstructions, setPaymentInstructions] = useState(
     initialInvoice?.paymentInstructions || ""
   );
+  const [showPaymentQr, setShowPaymentQr] = useState<boolean>(
+    initialInvoice?.showPaymentQr !== undefined ? initialInvoice.showPaymentQr : true
+  );
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -142,6 +145,9 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
             setCurrency(settingsData.settings.defaultCurrency || "INR");
             setTaxRate(settingsData.settings.defaultTaxRate || 18);
             setTaxEnabled(settingsData.settings.defaultTaxEnabled || false);
+            if (settingsData.settings.showPaymentQr !== undefined && initialInvoice?.showPaymentQr === undefined) {
+              setShowPaymentQr(settingsData.settings.showPaymentQr);
+            }
             if (!paymentInstructions) {
               setPaymentInstructions(settingsData.settings.defaultPaymentTerms || "");
             }
@@ -300,6 +306,7 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
     balanceDue: computedTotals.balanceDue,
     publicToken: initialInvoice?.publicToken || "preview-token",
     publicLinkEnabled: true,
+    showPaymentQr,
     createdAt: initialInvoice?.createdAt || todayStr,
     updatedAt: todayStr,
     items: computedTotals.items,
@@ -978,6 +985,27 @@ export function InvoiceEditor({ initialInvoice, isNew = false }: InvoiceEditorPr
                 placeholder="UPI ID, Bank transfer details, payment deadlines, etc."
                 className="w-full bg-ink border border-white/15 focus:border-red rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-colors"
               />
+            </div>
+
+            {/* Payment QR Code Toggle */}
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-secondary">
+                  Payment QR Code
+                </label>
+                <p className="text-[11px] text-mute">
+                  Show payment QR code on this invoice and PDF
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showPaymentQr}
+                  onChange={(e) => setShowPaymentQr(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red"></div>
+              </label>
             </div>
           </div>
         </div>

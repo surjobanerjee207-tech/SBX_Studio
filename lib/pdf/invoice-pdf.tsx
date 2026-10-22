@@ -5,10 +5,12 @@ import {
   Text,
   View,
   StyleSheet,
+  Image,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import { Invoice, StudioSettings, CURRENCY_SYMBOLS } from "../types/invoice";
 import { formatMoney } from "../invoice-calc";
+import { generateInvoiceQrDataUrl } from "../upi-qr";
 
 const RED = "#E50914";
 const DARK = "#111111";
@@ -237,6 +239,43 @@ const styles = StyleSheet.create({
     color: DARK,
     fontWeight: "bold",
   },
+  paymentBoxContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  paymentDetailsLeft: {
+    flex: 1,
+  },
+  qrContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 78,
+  },
+  qrBox: {
+    width: 76,
+    height: 76,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 3,
+    padding: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qrImage: {
+    width: 70,
+    height: 70,
+    objectFit: "contain",
+  },
+  qrCaption: {
+    fontSize: 6.5,
+    color: MUTED,
+    marginTop: 3,
+    textAlign: "center",
+    fontWeight: "bold",
+  },
   totalsBox: {
     flex: 0.9,
     borderWidth: 1,
@@ -297,9 +336,10 @@ const styles = StyleSheet.create({
 export interface InvoicePdfProps {
   invoice: Invoice;
   settings: StudioSettings;
+  qrDataUrl?: string | null;
 }
 
-export function InvoicePdfDocument({ invoice, settings }: InvoicePdfProps) {
+export function InvoicePdfDocument({ invoice, settings, qrDataUrl }: InvoicePdfProps) {
   const currency = invoice.currency || "INR";
   const sym = CURRENCY_SYMBOLS[currency] || "₹";
 
@@ -390,46 +430,59 @@ export function InvoicePdfDocument({ invoice, settings }: InvoicePdfProps) {
         <View style={styles.bottomSection}>
           {/* Payment Instructions */}
           <View style={styles.paymentBox}>
-            <Text style={styles.sectionHeading}>Payment Details</Text>
-            {settings.upiId ? (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>UPI ID:</Text>
-                <Text style={styles.paymentVal}>{settings.upiId}</Text>
+            <View style={styles.paymentBoxContent}>
+              <View style={styles.paymentDetailsLeft}>
+                <Text style={styles.sectionHeading}>Payment Details</Text>
+                {settings.upiId ? (
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>UPI ID:</Text>
+                    <Text style={styles.paymentVal}>{settings.upiId}</Text>
+                  </View>
+                ) : null}
+                {settings.bankName ? (
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Bank Name:</Text>
+                    <Text style={styles.paymentVal}>{settings.bankName}</Text>
+                  </View>
+                ) : null}
+                {settings.bankAccountName ? (
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>A/C Name:</Text>
+                    <Text style={styles.paymentVal}>{settings.bankAccountName}</Text>
+                  </View>
+                ) : null}
+                {settings.bankAccountNumber ? (
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>A/C Number:</Text>
+                    <Text style={styles.paymentVal}>{settings.bankAccountNumber}</Text>
+                  </View>
+                ) : null}
+                {settings.bankIfsc ? (
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>IFSC Code:</Text>
+                    <Text style={styles.paymentVal}>{settings.bankIfsc}</Text>
+                  </View>
+                ) : null}
+                {settings.bankSwift ? (
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>SWIFT Code:</Text>
+                    <Text style={styles.paymentVal}>{settings.bankSwift}</Text>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
-            {settings.bankName ? (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Bank Name:</Text>
-                <Text style={styles.paymentVal}>{settings.bankName}</Text>
-              </View>
-            ) : null}
-            {settings.bankAccountName ? (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>A/C Name:</Text>
-                <Text style={styles.paymentVal}>{settings.bankAccountName}</Text>
-              </View>
-            ) : null}
-            {settings.bankAccountNumber ? (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>A/C Number:</Text>
-                <Text style={styles.paymentVal}>{settings.bankAccountNumber}</Text>
-              </View>
-            ) : null}
-            {settings.bankIfsc ? (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>IFSC Code:</Text>
-                <Text style={styles.paymentVal}>{settings.bankIfsc}</Text>
-              </View>
-            ) : null}
-            {settings.bankSwift ? (
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>SWIFT Code:</Text>
-                <Text style={styles.paymentVal}>{settings.bankSwift}</Text>
-              </View>
-            ) : null}
+
+              {qrDataUrl ? (
+                <View style={styles.qrContainer}>
+                  <View style={styles.qrBox}>
+                    <Image src={qrDataUrl} style={styles.qrImage} />
+                  </View>
+                  <Text style={styles.qrCaption}>{settings.qrCaption || "Scan to pay"}</Text>
+                </View>
+              ) : null}
+            </View>
 
             {invoice.paymentInstructions ? (
-              <View style={{ marginTop: 6 }}>
+              <View style={{ marginTop: 6, borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 4 }}>
                 <Text style={[styles.sectionHeading, { fontSize: 7 }]}>Notes & Terms:</Text>
                 <Text style={{ fontSize: 7, color: MUTED }}>{invoice.paymentInstructions}</Text>
               </View>
@@ -512,7 +565,8 @@ export async function generateInvoicePdfBuffer(
   invoice: Invoice,
   settings: StudioSettings
 ): Promise<Buffer> {
-  const element = <InvoicePdfDocument invoice={invoice} settings={settings} />;
+  const qrDataUrl = await generateInvoiceQrDataUrl(invoice, settings);
+  const element = <InvoicePdfDocument invoice={invoice} settings={settings} qrDataUrl={qrDataUrl} />;
   return await renderToBuffer(element);
 }
 

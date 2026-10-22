@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Invoice, StudioSettings, CURRENCY_SYMBOLS } from "@/lib/types/invoice";
 import { formatMoney } from "@/lib/invoice-calc";
+import { generateInvoiceQrDataUrl } from "@/lib/upi-qr";
 
 interface LiveInvoicePreviewProps {
   invoice: Invoice;
@@ -10,6 +11,18 @@ interface LiveInvoicePreviewProps {
 }
 
 export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProps) {
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    generateInvoiceQrDataUrl(invoice, settings).then((url) => {
+      if (isMounted) setQrUrl(url);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [invoice, settings]);
+
   const currency = invoice.currency || "INR";
   const sym = CURRENCY_SYMBOLS[currency] || "₹";
 

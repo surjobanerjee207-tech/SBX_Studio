@@ -40,6 +40,10 @@ model StudioSettings {
   defaultTaxRate       Int      @default(0)
   defaultTaxEnabled    Boolean  @default(false)
   defaultPaymentTerms  String?  @db.Text
+  showPaymentQr        Boolean  @default(true)
+  qrMode               String   @default("auto")
+  customQrUrl          String?  @db.Text
+  qrCaption            String?  @default("Scan to pay")
   adminPasswordHash    String?
   adminPasswordSalt    String?
   updatedAt            DateTime @updatedAt
@@ -106,6 +110,7 @@ model Invoice {
   balanceDue          Int           @default(0)
   publicToken         String        @unique @default(cuid())
   publicLinkEnabled   Boolean       @default(true)
+  showPaymentQr       Boolean       @default(true)
   sentAt              DateTime?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt

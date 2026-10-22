@@ -1,4 +1,6 @@
 import React from "react";
+import path from "path";
+import fs from "fs";
 import {
   Document,
   Page,
@@ -6,11 +8,39 @@ import {
   View,
   StyleSheet,
   Image,
+  Font,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import { Invoice, StudioSettings, CURRENCY_SYMBOLS } from "../types/invoice";
 import { formatMoney } from "../invoice-calc";
 import { generateInvoiceQrDataUrl } from "../upi-qr";
+
+let fontsRegistered = false;
+function registerCustomFonts() {
+  if (fontsRegistered) return;
+  fontsRegistered = true;
+  try {
+    const regularFontPath = path.join(process.cwd(), "assets", "fonts", "Inter-Regular.ttf");
+    const boldFontPath = path.join(process.cwd(), "assets", "fonts", "Inter-Bold.ttf");
+
+    if (fs.existsSync(regularFontPath) && fs.existsSync(boldFontPath)) {
+      Font.register({
+        family: "Inter",
+        fonts: [
+          { src: regularFontPath, fontWeight: "normal" },
+          { src: boldFontPath, fontWeight: "bold" },
+        ],
+      });
+    } else {
+      console.warn("Custom Inter font files not found at assets/fonts, falling back to standard fonts.");
+    }
+  } catch (err) {
+    console.error("Failed to register custom PDF fonts:", err);
+  }
+}
+
+// Initial registration
+registerCustomFonts();
 
 const RED = "#E50914";
 const DARK = "#111111";
@@ -22,7 +52,7 @@ const styles = StyleSheet.create({
   page: {
     size: "A4",
     padding: 36,
-    fontFamily: "Helvetica",
+    fontFamily: "Inter",
     fontSize: 9,
     color: DARK,
     lineHeight: 1.4,
@@ -565,11 +595,14 @@ export async function generateInvoicePdfBuffer(
   invoice: Invoice,
   settings: StudioSettings
 ): Promise<Buffer> {
+  registerCustomFonts();
+
   let qrDataUrl: string | null = null;
   try {
     qrDataUrl = await generateInvoiceQrDataUrl(invoice, settings);
   } catch (err) {
     console.error("generateInvoicePdfBuffer: Failed to generate invoice QR data URL:", err);
+    qrDataUrl = null;
   }
   const element = <InvoicePdfDocument invoice={invoice} settings={settings} qrDataUrl={qrDataUrl} />;
   return await renderToBuffer(element);

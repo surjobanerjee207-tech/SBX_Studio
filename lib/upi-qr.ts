@@ -170,18 +170,32 @@ export async function generateInvoiceQrDataUrl(
     (details.currency !== "INR" && Boolean(details.customQrUrl));
 
   if (shouldUseCustomImage) {
-    if (typeof window === "undefined" && details.customQrUrl.startsWith("/")) {
-      try {
-        const fs = require("fs");
-        const path = require("path");
-        const filePath = path.join(process.cwd(), "public", details.customQrUrl.replace(/^\//, ""));
-        if (fs.existsSync(filePath)) {
-          const buf = fs.readFileSync(filePath);
-          const mime = details.customQrUrl.endsWith(".png") ? "image/png" : "image/jpeg";
-          return `data:${mime};base64,${buf.toString("base64")}`;
+    if (typeof window === "undefined") {
+      if (details.customQrUrl.startsWith("/")) {
+        try {
+          const fs = require("fs");
+          const path = require("path");
+          const filePath = path.join(process.cwd(), "public", details.customQrUrl.replace(/^\//, ""));
+          if (fs.existsSync(filePath)) {
+            const buf = fs.readFileSync(filePath);
+            const mime = details.customQrUrl.endsWith(".png") ? "image/png" : "image/jpeg";
+            return `data:${mime};base64,${buf.toString("base64")}`;
+          }
+        } catch (err) {
+          console.warn("Could not read local custom QR image file:", err);
         }
-      } catch (err) {
-        console.warn("Could not read local custom QR image file:", err);
+      } else if (details.customQrUrl.startsWith("http://") || details.customQrUrl.startsWith("https://")) {
+        try {
+          const res = await fetch(details.customQrUrl);
+          if (res.ok) {
+            const arrayBuf = await res.arrayBuffer();
+            const buf = Buffer.from(arrayBuf);
+            const contentType = res.headers.get("content-type") || "image/jpeg";
+            return `data:${contentType};base64,${buf.toString("base64")}`;
+          }
+        } catch (err) {
+          console.warn("Could not fetch remote custom QR image into buffer:", err);
+        }
       }
     }
     return details.customQrUrl;

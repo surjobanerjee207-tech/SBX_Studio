@@ -1,3 +1,7 @@
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 import { NextResponse } from "next/server";
 import {
   getInvoiceByPublicToken,
@@ -12,19 +16,34 @@ export async function GET(
   req: Request,
   { params }: { params: { token: string } }
 ) {
-  const invoice = await getInvoiceByPublicToken(params.token);
-  if (!invoice) {
-    return NextResponse.json({ error: "Invoice not found or link has expired" }, { status: 404 });
+  try {
+    const invoice = await getInvoiceByPublicToken(params.token);
+    if (!invoice) {
+      return NextResponse.json(
+        { ok: false, error: "Invoice not found or link has expired." },
+        { status: 404 }
+      );
+    }
+
+    const settings = await getStudioSettings();
+    const buffer = await generateInvoicePdfBuffer(invoice, settings);
+    const filename = getInvoicePdfFilename(invoice);
+
+    const headers = new Headers();
+    headers.set("Content-Type", "application/pdf");
+    headers.set("Content-Disposition", `attachment; filename="${filename}"`);
+    headers.set("Content-Length", buffer.length.toString());
+
+    return new NextResponse(buffer, { status: 200, headers });
+  } catch (err: any) {
+    console.error(`Error generating public PDF for token ${params?.token}:`, err);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Failed to generate invoice PDF. Please try again.",
+        details: err?.message || String(err),
+      },
+      { status: 500 }
+    );
   }
-
-  const settings = await getStudioSettings();
-  const buffer = await generateInvoicePdfBuffer(invoice, settings);
-  const filename = getInvoicePdfFilename(invoice);
-
-  const headers = new Headers();
-  headers.set("Content-Type", "application/pdf");
-  headers.set("Content-Disposition", `attachment; filename="${filename}"`);
-  headers.set("Content-Length", buffer.length.toString());
-
-  return new NextResponse(buffer, { status: 200, headers });
 }

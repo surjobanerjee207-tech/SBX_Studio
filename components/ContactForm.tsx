@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
 export function ContactForm() {
   const [s, setS] = useState<"idle" | "sending" | "ok" | "err">("idle");
   const [deadlineErr, setDeadlineErr] = useState<string | null>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   const { minDate, maxDate } = useMemo(() => {
     const now = new Date();
@@ -158,10 +160,56 @@ export function ContactForm() {
       >
         {s === "sending" ? "Sending…" : "Send Project Inquiry"}
       </button>
-      <p role="status" className="text-mute">
-        {s === "ok" && "Thanks — your inquiry was sent."}
-        {s === "err" && !deadlineErr && "Could not send. Check the fields and try again."}
-      </p>
+
+      {/* Success / Error Status Announcement */}
+      {s === "ok" && (
+        <motion.div
+          role="status"
+          aria-live="polite"
+          initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="inline-flex items-center gap-3 text-bone text-base font-normal pt-1"
+        >
+          <span className="text-bone font-medium">Thanks — your inquiry was sent.</span>
+          <motion.svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#22C55E"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-[22px] h-[22px] shrink-0 text-[#22C55E]"
+            aria-hidden="true"
+            initial={shouldReduceMotion ? { scale: 1, opacity: 1 } : { scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={
+              shouldReduceMotion
+                ? { duration: 0 }
+                : { delay: 0.15, type: "spring", stiffness: 280, damping: 20 }
+            }
+          >
+            <circle cx="12" cy="12" r="10" />
+            <motion.path
+              d="m9 12 2 2 4-4"
+              initial={shouldReduceMotion ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 1 }}
+              transition={
+                shouldReduceMotion
+                  ? { duration: 0 }
+                  : { delay: 0.28, duration: 0.4, ease: "easeOut" }
+              }
+            />
+          </motion.svg>
+        </motion.div>
+      )}
+
+      {s === "err" && !deadlineErr && (
+        <p role="status" aria-live="polite" className="text-mute">
+          Could not send. Check the fields and try again.
+        </p>
+      )}
     </form>
   );
 }

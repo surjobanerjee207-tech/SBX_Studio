@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { ScrollTimeline } from "@/components/ScrollTimeline";
 
 export function PublicChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,7 +16,7 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  // On any /admin route or standalone public invoice route, do NOT render public header, footer, or timeline
+  // On any /admin route or standalone public invoice route, do NOT render public header or footer
   if (isAdmin || isInvoicePublic) {
     return <>{children}</>;
   }
@@ -34,7 +33,6 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <ScrollTimeline />
       <header className="fixed top-0 inset-x-0 z-40 backdrop-blur bg-ink/80 border-b border-white/5">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap font-semibold">

@@ -144,15 +144,15 @@ export default async function PricingPage() {
               </div>
 
               <div className="mt-8 pt-5 border-t border-white/10">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-mono text-mute tracking-wider uppercase">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs font-mono text-mute tracking-wider uppercase shrink-0">
                     Starting from
                   </span>
-                  <div className="text-right">
-                    <span className="font-mono text-2xl sm:text-3xl font-bold text-white">
+                  <div className="text-right whitespace-nowrap">
+                    <span className="font-price font-bold text-2xl sm:text-3xl text-white [letter-spacing:-0.02em] leading-none tabular-nums">
                       ₹{Number(service.defaultPrice || 0).toLocaleString("en-IN")}
                     </span>
-                    <span className="text-xs text-mute font-sans ml-1">
+                    <span className="font-price font-medium text-xs text-mute ml-1 align-baseline">
                       / {service.defaultUnit || "project"}
                     </span>
                   </div>

@@ -20,6 +20,7 @@ export default {
       fontFamily: {
         display: ["var(--f-display)", "serif"],
         sans: ["var(--f-sans)", "sans-serif"],
+        price: ["var(--font-price)", "Inter", "system-ui", "sans-serif"],
       },
     },
   },

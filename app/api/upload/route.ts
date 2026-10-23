@@ -36,8 +36,9 @@ export async function POST(req: Request) {
     // 1. If Vercel Blob token is configured, upload to Vercel Blob storage
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const { put } = await import("@vercel/blob");
-      const blob = await put(`uploads/${Date.now()}-${safeName}`, file, {
+      const blob = await put(`uploads/${safeName}`, file, {
         access: "public",
+        addRandomSuffix: true,
       });
       return NextResponse.json({ ok: true, url: blob.url });
     }

@@ -265,11 +265,84 @@ async function healQrRowsOnce() {
   }
 }
 
+let assetsBlobSynced = false;
+async function syncLocalAssetsToVercelBlob(record: any) {
+  if (assetsBlobSynced || !process.env.BLOB_READ_WRITE_TOKEN) return;
+
+  const needsLogo = record.logoUrl && record.logoUrl.startsWith("/");
+  const needsBackupQr =
+    (record.backupQrUrl && record.backupQrUrl.startsWith("/")) ||
+    (record.customQrUrl && record.customQrUrl.startsWith("/"));
+
+  if (!needsLogo && !needsBackupQr) {
+    assetsBlobSynced = true;
+    return;
+  }
+
+  try {
+    const { put } = await import("@vercel/blob");
+    const fs = await import("fs");
+    const path = await import("path");
+
+    const updates: any = {};
+
+    if (needsLogo) {
+      let logoPath = path.join(process.cwd(), "public", record.logoUrl.replace(/^\//, ""));
+      if (!fs.existsSync(logoPath)) {
+        logoPath = path.join(process.cwd(), "app", record.logoUrl.replace(/^\//, ""));
+      }
+      if (fs.existsSync(logoPath)) {
+        const fileBuf = fs.readFileSync(logoPath);
+        const ext = path.extname(logoPath).toLowerCase() || ".svg";
+        const mime = ext === ".svg" ? "image/svg+xml" : ext === ".png" ? "image/png" : "image/jpeg";
+        const blob = await put(`logo/logo${ext}`, fileBuf, {
+          access: "public",
+          addRandomSuffix: true,
+          contentType: mime,
+        });
+        updates.logoUrl = blob.url;
+        record.logoUrl = blob.url;
+      }
+    }
+
+    if (needsBackupQr) {
+      const qrRelPath = record.backupQrUrl || record.customQrUrl || "/payment-qr.jpg";
+      const qrPath = path.join(process.cwd(), "public", qrRelPath.replace(/^\//, ""));
+      if (fs.existsSync(qrPath)) {
+        const fileBuf = fs.readFileSync(qrPath);
+        const ext = path.extname(qrPath).toLowerCase() || ".jpg";
+        const mime = ext === ".png" ? "image/png" : "image/jpeg";
+        const blob = await put(`qr/backup-qr${ext}`, fileBuf, {
+          access: "public",
+          addRandomSuffix: true,
+          contentType: mime,
+        });
+        updates.backupQrUrl = blob.url;
+        updates.customQrUrl = blob.url;
+        record.backupQrUrl = blob.url;
+        record.customQrUrl = blob.url;
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      assetsBlobSynced = true;
+      await prisma.studioSettings.update({
+        where: { id: "default" },
+        data: updates,
+      });
+      console.log("Synced local assets to Vercel Blob store:", updates);
+    }
+  } catch (err) {
+    console.warn("Could not sync local assets to Vercel Blob:", err);
+  }
+}
+
 export async function getStudioSettings(): Promise<StudioSettings> {
   try {
     healQrRowsOnce().catch(() => {});
     const record = await prisma.studioSettings.findUnique({ where: { id: "default" } });
     if (record) {
+      await syncLocalAssetsToVercelBlob(record).catch(() => {});
       const isCustomMode =
         (record.qrMode === "custom" || record.qrMode === "upload") && Boolean(record.customQrUrl);
 
@@ -338,8 +411,13 @@ export async function getStudioSettings(): Promise<StudioSettings> {
       },
     });
 
+    await syncLocalAssetsToVercelBlob(created).catch(() => {});
+
     return {
       ...DEFAULT_SETTINGS,
+      logoUrl: created.logoUrl || DEFAULT_SETTINGS.logoUrl,
+      backupQrUrl: created.backupQrUrl || DEFAULT_SETTINGS.backupQrUrl,
+      customQrUrl: created.customQrUrl || DEFAULT_SETTINGS.customQrUrl,
       updatedAt: created.updatedAt.toISOString(),
     };
   } catch (err) {

@@ -89,6 +89,7 @@ export default function StudioSettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setError(null);
     setUploadingLogo(true);
     try {
       const formData = new FormData();
@@ -101,10 +102,21 @@ export default function StudioSettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
+      // Save only the returned URL in the database
+      const saveRes = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logoUrl: data.url }),
+      });
+      if (!saveRes.ok) {
+        const errData = await saveRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to save logo URL in database");
+      }
+
       setSettings((prev) => (prev ? { ...prev, logoUrl: data.url } : prev));
-      showToast("Logo uploaded successfully!");
+      showToast("Logo uploaded and saved successfully!");
     } catch (err: any) {
-      alert("Error uploading logo: " + err.message);
+      setError("Failed to upload logo: " + (err.message || "Unknown error"));
     } finally {
       setUploadingLogo(false);
     }
@@ -140,13 +152,28 @@ export default function StudioSettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
+      // Save only the returned URL in the database
+      const saveRes = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          backupQrUrl: data.url,
+          customQrUrl: data.url,
+          showBackupQr: true,
+        }),
+      });
+      if (!saveRes.ok) {
+        const errData = await saveRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to save backup QR URL in database");
+      }
+
       setSettings((prev) => (prev ? {
         ...prev,
         backupQrUrl: data.url,
         customQrUrl: data.url,
         showBackupQr: true,
       } : prev));
-      showToast("Backup QR code image uploaded successfully!");
+      showToast("Backup QR code image uploaded and saved successfully!");
     } catch (err: any) {
       setError("Failed to upload QR image: " + (err.message || "Unknown error"));
     } finally {

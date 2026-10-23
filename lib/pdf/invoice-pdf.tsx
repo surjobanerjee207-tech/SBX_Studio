@@ -21,7 +21,30 @@ export function registerCustomFonts() {
   fontsRegistered = true;
 
   try {
-    Font.registerHyphenationCallback((word) => [word]);
+    Font.registerHyphenationCallback((word) => {
+      // Break long words without spaces (like long UPI IDs, URLs, IBANs) so they never overflow
+      if (word.length > 20) {
+        if (word.includes("@")) {
+          const atIdx = word.indexOf("@");
+          const before = word.slice(0, atIdx);
+          const after = word.slice(atIdx);
+          if (before.length > 18) {
+            const parts: string[] = [];
+            for (let i = 0; i < before.length; i += 14) {
+              parts.push(before.slice(i, i + 14));
+            }
+            return [...parts, after];
+          }
+          return [before, after];
+        }
+        const parts: string[] = [];
+        for (let i = 0; i < word.length; i += 14) {
+          parts.push(word.slice(i, i + 14));
+        }
+        return parts;
+      }
+      return [word];
+    });
   } catch (err) {
     console.warn("Could not register hyphenation callback:", err);
   }
@@ -312,138 +335,15 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 1,
   },
-  // Bottom breakdown
-  bottomSection: {
+  // Totals breakdown
+  totalsContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 20,
-    marginTop: 5,
-  },
-  paymentBox: {
-    flex: 1.1,
-    padding: 10,
-    backgroundColor: LIGHT_BG,
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 3,
-  },
-  paymentRow: {
-    flexDirection: "row",
-    marginBottom: 2,
-    fontSize: 7.5,
-  },
-  paymentLabel: {
-    width: 80,
-    color: MUTED,
-    fontWeight: "bold",
-  },
-  paymentVal: {
-    flex: 1,
-    color: DARK,
-    fontWeight: "bold",
-  },
-  paymentBoxContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  paymentDetailsLeft: {
-    flex: 1,
-  },
-  qrDualContainer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 6,
-    flexShrink: 0,
-  },
-  qrItemMain: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 82,
-  },
-  qrBoxMain: {
-    width: 80,
-    height: 80,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 3,
-    padding: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  qrImageMain: {
-    width: 76,
-    height: 76,
-    objectFit: "contain",
-  },
-  qrCaptionMain: {
-    fontSize: 6,
-    color: DARK,
-    marginTop: 2.5,
-    textAlign: "center",
-    fontWeight: "bold",
-    maxWidth: 82,
-  },
-  qrItemBackup: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 59,
-  },
-  qrBoxBackup: {
-    width: 57,
-    height: 57,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 3,
-    padding: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  qrImageBackup: {
-    width: 53,
-    height: 53,
-    objectFit: "contain",
-  },
-  qrCaptionBackup: {
-    fontSize: 5.5,
-    color: MUTED,
-    marginTop: 2,
-    textAlign: "center",
-    maxWidth: 59,
-  },
-  qrContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 86,
-  },
-  qrBox: {
-    width: 84,
-    height: 84,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 3,
-    padding: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  qrImage: {
-    width: 80,
-    height: 80,
-    objectFit: "contain",
-  },
-  qrCaption: {
-    fontSize: 6.5,
-    color: MUTED,
-    marginTop: 3,
-    textAlign: "center",
-    fontWeight: "bold",
+    justifyContent: "flex-end",
+    marginTop: 4,
+    marginBottom: 10,
   },
   totalsBox: {
-    flex: 0.9,
+    width: "45%",
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 3,
@@ -452,7 +352,7 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 4,
+    paddingVertical: 3.5,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: BORDER,
@@ -461,7 +361,7 @@ const styles = StyleSheet.create({
   summaryRowGrand: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 8,
     backgroundColor: "#FEE2E2",
     borderBottomWidth: 1,
@@ -473,12 +373,199 @@ const styles = StyleSheet.create({
   summaryRowBalance: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 8,
     backgroundColor: DARK,
     color: "#FFFFFF",
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: "bold",
+  },
+
+  // Payment Information Section
+  paymentSection: {
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  paymentSectionHeader: {
+    marginBottom: 6,
+  },
+  paymentSectionHeading: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: RED,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  paymentSectionRedLine: {
+    borderBottomWidth: 1,
+    borderBottomColor: RED,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "stretch",
+  },
+  card: {
+    flex: 1,
+    backgroundColor: LIGHT_BG,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 3,
+    padding: 8,
+  },
+  cardFull: {
+    width: "100%",
+    backgroundColor: LIGHT_BG,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 3,
+    padding: 8,
+  },
+  cardTitle: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: DARK,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 5,
+  },
+  bankTable: {
+    flexDirection: "column",
+  },
+  bankRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EAEAEA",
+  },
+  bankRowLast: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 3,
+  },
+  bankLabel: {
+    width: "35%",
+    fontSize: 7,
+    color: MUTED,
+    fontWeight: "bold",
+    lineHeight: 1.25,
+  },
+  bankVal: {
+    width: "65%",
+    fontSize: 7.5,
+    color: DARK,
+    fontWeight: "bold",
+    lineHeight: 1.25,
+  },
+  bankValMono: {
+    width: "65%",
+    fontSize: 7.5,
+    color: DARK,
+    fontWeight: "bold",
+    lineHeight: 1.25,
+  },
+  upiInfoBlock: {
+    marginBottom: 4,
+  },
+  upiLabel: {
+    fontSize: 6.5,
+    color: MUTED,
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    marginBottom: 1,
+  },
+  upiVal: {
+    fontSize: 9.5,
+    fontWeight: "bold",
+    color: DARK,
+    lineHeight: 1.2,
+    marginBottom: 4,
+  },
+  qrRowCenter: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: "auto",
+    paddingTop: 4,
+  },
+  qrBlockMain: {
+    alignItems: "center",
+    width: 80,
+  },
+  qrBoxMain: {
+    width: 80,
+    height: 80,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 3,
+    padding: 2.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qrImageMain: {
+    width: 75,
+    height: 75,
+    objectFit: "contain",
+  },
+  qrCaptionMain: {
+    fontSize: 6,
+    color: DARK,
+    marginTop: 4,
+    lineHeight: 1.3,
+    textAlign: "center",
+    fontWeight: "bold",
+    width: 80,
+  },
+  qrBlockBackup: {
+    alignItems: "center",
+    width: 58,
+  },
+  qrBoxBackup: {
+    width: 58,
+    height: 58,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 3,
+    padding: 2.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qrImageBackup: {
+    width: 53,
+    height: 53,
+    objectFit: "contain",
+  },
+  qrCaptionBackup: {
+    fontSize: 5.5,
+    color: MUTED,
+    marginTop: 4,
+    lineHeight: 1.3,
+    textAlign: "center",
+    width: 58,
+  },
+  notesSection: {
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+  },
+  notesHeading: {
+    fontSize: 7.5,
+    fontWeight: "bold",
+    color: RED,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  notesContent: {
+    fontSize: 7,
+    color: MUTED,
+    lineHeight: 1.3,
   },
   footerMessage: {
     marginTop: 25,
@@ -528,6 +615,20 @@ export function InvoicePdfDocument({
     `Scan to pay Rs. ${Number.isInteger(balanceDue) ? balanceDue.toLocaleString("en-IN") : balanceDue.toFixed(2)}`;
   const effectiveBackupCaption =
     backupCaption || settings.backupQrCaption || "Backup QR: enter the amount manually";
+
+  const hasBankDetails = Boolean(
+    settings.bankAccountName ||
+    settings.bankName ||
+    settings.bankAccountNumber ||
+    settings.bankIfsc ||
+    settings.bankSwift
+  );
+  const hasUpiId = Boolean(settings.upiId && settings.upiId.trim());
+  const hasMainQr = Boolean(effectiveMainQr);
+  const hasBackupQr = Boolean(effectiveBackupQr);
+  const hasAnyQr = hasMainQr || hasBackupQr;
+  const hasUpiCard = hasUpiId || hasAnyQr;
+  const showPaymentSection = hasBankDetails || hasUpiCard;
 
   const statusStyle =
     invoice.status === "Paid"
@@ -612,84 +713,8 @@ export function InvoicePdfDocument({
           ))}
         </View>
 
-        {/* Bottom Section: Payment Instructions + Summary */}
-        <View style={styles.bottomSection}>
-          {/* Payment Instructions */}
-          <View style={styles.paymentBox}>
-            <View style={styles.paymentBoxContent}>
-              <View style={styles.paymentDetailsLeft}>
-                <Text style={styles.sectionHeading}>Payment Details</Text>
-                {settings.upiId ? (
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>UPI ID:</Text>
-                    <Text style={styles.paymentVal}>{settings.upiId}</Text>
-                  </View>
-                ) : null}
-                {settings.bankName ? (
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>Bank Name:</Text>
-                    <Text style={styles.paymentVal}>{settings.bankName}</Text>
-                  </View>
-                ) : null}
-                {settings.bankAccountName ? (
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>A/C Name:</Text>
-                    <Text style={styles.paymentVal}>{settings.bankAccountName}</Text>
-                  </View>
-                ) : null}
-                {settings.bankAccountNumber ? (
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>A/C Number:</Text>
-                    <Text style={styles.paymentVal}>{settings.bankAccountNumber}</Text>
-                  </View>
-                ) : null}
-                {settings.bankIfsc ? (
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>IFSC Code:</Text>
-                    <Text style={styles.paymentVal}>{settings.bankIfsc}</Text>
-                  </View>
-                ) : null}
-                {settings.bankSwift ? (
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>SWIFT Code:</Text>
-                    <Text style={styles.paymentVal}>{settings.bankSwift}</Text>
-                  </View>
-                ) : null}
-              </View>
-
-              {/* Dual Payment QR Codes */}
-              {(effectiveMainQr || effectiveBackupQr) ? (
-                <View style={styles.qrDualContainer}>
-                  {effectiveMainQr ? (
-                    <View style={styles.qrItemMain}>
-                      <View style={styles.qrBoxMain}>
-                        <Image src={effectiveMainQr} style={styles.qrImageMain} />
-                      </View>
-                      <Text style={styles.qrCaptionMain}>{effectiveMainCaption}</Text>
-                    </View>
-                  ) : null}
-
-                  {effectiveBackupQr ? (
-                    <View style={styles.qrItemBackup}>
-                      <View style={styles.qrBoxBackup}>
-                        <Image src={effectiveBackupQr} style={styles.qrImageBackup} />
-                      </View>
-                      <Text style={styles.qrCaptionBackup}>{effectiveBackupCaption}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
-
-            {invoice.paymentInstructions ? (
-              <View style={{ marginTop: 6, borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 4 }}>
-                <Text style={[styles.sectionHeading, { fontSize: 7 }]}>Notes & Terms:</Text>
-                <Text style={{ fontSize: 7, color: MUTED }}>{invoice.paymentInstructions}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Totals Summary */}
+        {/* 1. TOTALS: right-aligned block, about 45% of page width, directly under items table */}
+        <View style={styles.totalsContainer}>
           <View style={styles.totalsBox}>
             <View style={styles.summaryRow}>
               <Text style={{ color: MUTED }}>Subtotal</Text>
@@ -721,11 +746,6 @@ export function InvoicePdfDocument({
               </View>
             ) : null}
 
-            <View style={styles.summaryRowGrand}>
-              <Text>Grand Total</Text>
-              <Text>{formatMoney(invoice.grandTotal, currency)}</Text>
-            </View>
-
             {invoice.advancePaid > 0 ? (
               <View style={styles.summaryRow}>
                 <Text style={{ color: MUTED }}>Advance Paid</Text>
@@ -735,12 +755,112 @@ export function InvoicePdfDocument({
               </View>
             ) : null}
 
+            <View style={styles.summaryRowGrand}>
+              <Text>Grand Total</Text>
+              <Text>{formatMoney(invoice.grandTotal, currency)}</Text>
+            </View>
+
             <View style={styles.summaryRowBalance}>
               <Text>Balance Due</Text>
               <Text>{formatMoney(invoice.balanceDue, currency)}</Text>
             </View>
           </View>
         </View>
+
+        {/* 2. PAYMENT INFORMATION: full-width section with red heading and line */}
+        {showPaymentSection ? (
+          <View style={styles.paymentSection} wrap={false}>
+            <View style={styles.paymentSectionHeader}>
+              <Text style={styles.paymentSectionHeading}>PAYMENT INFORMATION</Text>
+              <View style={styles.paymentSectionRedLine} />
+            </View>
+
+            <View style={styles.cardsRow}>
+              {/* LEFT CARD: Bank Transfer */}
+              {hasBankDetails ? (
+                <View style={hasUpiCard ? styles.card : styles.cardFull} wrap={false}>
+                  <Text style={styles.cardTitle}>Bank Transfer</Text>
+                  <View style={styles.bankTable}>
+                    {settings.bankAccountName ? (
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>Account Name</Text>
+                        <Text style={styles.bankVal}>{settings.bankAccountName}</Text>
+                      </View>
+                    ) : null}
+                    {settings.bankName ? (
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>Bank</Text>
+                        <Text style={styles.bankVal}>{settings.bankName}</Text>
+                      </View>
+                    ) : null}
+                    {settings.bankAccountNumber ? (
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>Account Number</Text>
+                        <Text style={styles.bankValMono}>{settings.bankAccountNumber}</Text>
+                      </View>
+                    ) : null}
+                    {settings.bankIfsc ? (
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>IFSC Code</Text>
+                        <Text style={styles.bankValMono}>{settings.bankIfsc}</Text>
+                      </View>
+                    ) : null}
+                    {settings.bankSwift ? (
+                      <View style={styles.bankRowLast}>
+                        <Text style={styles.bankLabel}>SWIFT Code</Text>
+                        <Text style={styles.bankValMono}>{settings.bankSwift}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+
+              {/* RIGHT CARD: Pay via UPI */}
+              {hasUpiCard ? (
+                <View style={hasBankDetails ? styles.card : styles.cardFull} wrap={false}>
+                  <Text style={styles.cardTitle}>Pay via UPI</Text>
+
+                  {hasUpiId ? (
+                    <View style={styles.upiInfoBlock}>
+                      <Text style={styles.upiLabel}>UPI ID</Text>
+                      <Text style={styles.upiVal}>{settings.upiId}</Text>
+                    </View>
+                  ) : null}
+
+                  {hasAnyQr ? (
+                    <View style={styles.qrRowCenter}>
+                      {hasMainQr ? (
+                        <View style={styles.qrBlockMain}>
+                          <View style={styles.qrBoxMain}>
+                            <Image src={effectiveMainQr!} style={styles.qrImageMain} />
+                          </View>
+                          <Text style={styles.qrCaptionMain}>{effectiveMainCaption}</Text>
+                        </View>
+                      ) : null}
+
+                      {hasBackupQr ? (
+                        <View style={styles.qrBlockBackup}>
+                          <View style={styles.qrBoxBackup}>
+                            <Image src={effectiveBackupQr!} style={styles.qrImageBackup} />
+                          </View>
+                          <Text style={styles.qrCaptionBackup}>{effectiveBackupCaption}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {/* 3. NOTES & TERMS: full-width below Payment Information */}
+        {invoice.paymentInstructions ? (
+          <View style={styles.notesSection} wrap={false}>
+            <Text style={styles.notesHeading}>NOTES & TERMS</Text>
+            <Text style={styles.notesContent}>{invoice.paymentInstructions}</Text>
+          </View>
+        ) : null}
 
         {/* Footer message */}
         <Text style={styles.footerMessage}>

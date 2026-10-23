@@ -50,6 +50,20 @@ export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProp
   const currency = invoice.currency || "INR";
   const sym = CURRENCY_SYMBOLS[currency] || "₹";
 
+  const hasBankDetails = Boolean(
+    settings.bankAccountName ||
+    settings.bankName ||
+    settings.bankAccountNumber ||
+    settings.bankIfsc ||
+    settings.bankSwift
+  );
+  const hasUpiId = Boolean(settings.upiId && settings.upiId.trim());
+  const hasMainQr = Boolean(qrData.mainQrDataUrl);
+  const hasBackupQr = Boolean(qrData.backupQrDataUrl);
+  const hasAnyQr = hasMainQr || hasBackupQr;
+  const hasUpiCard = hasUpiId || hasAnyQr;
+  const showPaymentSection = hasBankDetails || hasUpiCard;
+
   const getStatusBadge = () => {
     switch (invoice.status) {
       case "Paid":
@@ -179,112 +193,9 @@ export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProp
         </table>
       </div>
 
-      {/* Bottom Grid: Payment Info + Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-4 border-t border-zinc-200">
-        {/* Payment instructions */}
-        <div className="p-4 bg-zinc-50 border border-zinc-200 rounded text-[11px] text-zinc-600 flex flex-col justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-red mb-2">
-              Payment Details
-            </p>
-            <div className="flex flex-row justify-between items-start gap-3">
-              <div className="space-y-1 flex-1 min-w-0">
-                {settings.upiId && (
-                  <p className="truncate">
-                    <span className="font-semibold text-zinc-700">UPI ID:</span> {settings.upiId}
-                  </p>
-                )}
-                {settings.bankName && (
-                  <p>
-                    <span className="font-semibold text-zinc-700">Bank:</span> {settings.bankName}
-                  </p>
-                )}
-                {settings.bankAccountName && (
-                  <p>
-                    <span className="font-semibold text-zinc-700">A/C Name:</span> {settings.bankAccountName}
-                  </p>
-                )}
-                {settings.bankAccountNumber && (
-                  <p>
-                    <span className="font-semibold text-zinc-700">A/C No:</span> {settings.bankAccountNumber}
-                  </p>
-                )}
-                {settings.bankIfsc && (
-                  <p>
-                    <span className="font-semibold text-zinc-700">IFSC:</span> {settings.bankIfsc}
-                  </p>
-                )}
-                {settings.bankSwift && (
-                  <p>
-                    <span className="font-semibold text-zinc-700">SWIFT:</span> {settings.bankSwift}
-                  </p>
-                )}
-              </div>
-
-              {/* Dual Payment QR Code Box */}
-              {(qrData.mainQrDataUrl || qrData.backupQrDataUrl) ? (
-                <div className="flex flex-row items-end gap-2.5 shrink-0">
-                  {/* Main QR (~28mm) */}
-                  {qrData.mainQrDataUrl && (
-                    <div className="flex flex-col items-center justify-center w-[104px]">
-                      <div className="w-[100px] h-[100px] bg-white border border-zinc-200 rounded p-1 flex items-center justify-center shadow-xs">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={qrData.mainQrDataUrl}
-                          alt="Main UPI QR Code"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <p className="text-[9px] text-zinc-700 font-bold mt-1 text-center max-w-[104px] leading-tight">
-                        {qrData.mainCaption}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Backup QR (~20mm) */}
-                  {qrData.backupQrDataUrl && (
-                    <div className="flex flex-col items-center justify-center w-[76px]">
-                      <div className="w-[72px] h-[72px] bg-white border border-zinc-200 rounded p-1 flex items-center justify-center shadow-xs">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={qrData.backupQrDataUrl}
-                          alt="Backup QR Code"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <p className="text-[8px] text-zinc-500 font-medium mt-1 text-center max-w-[76px] leading-tight">
-                        {qrData.backupCaption}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </div>
-
-            {/* Small grey hint if condition fails */}
-            {!qrData.mainQrDataUrl && !qrData.backupQrDataUrl && qrDecision.reason ? (
-              <div className="mt-2.5 pt-2 border-t border-zinc-200/80 text-[10px] text-zinc-400 italic">
-                QR note: {qrDecision.reason}
-              </div>
-            ) : null}
-
-            {qrError ? (
-              <div className="mt-2 text-[10px] text-red italic">
-                QR error: {qrError}
-              </div>
-            ) : null}
-          </div>
-
-          {invoice.paymentInstructions && (
-            <div className="mt-3 pt-3 border-t border-zinc-200">
-              <p className="text-[10px] font-bold text-zinc-700 uppercase">Notes / Terms:</p>
-              <p className="text-[10px] text-zinc-500 mt-0.5">{invoice.paymentInstructions}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Totals Summary */}
-        <div className="border border-zinc-200 rounded overflow-hidden divide-y divide-zinc-200 text-xs">
+      {/* 1. TOTALS: right-aligned block, about 45% of page width, directly under items table */}
+      <div className="flex justify-end my-6">
+        <div className="w-full sm:w-[45%] border border-zinc-200 rounded overflow-hidden divide-y divide-zinc-200 text-xs">
           <div className="flex justify-between p-2.5">
             <span className="text-zinc-600">Subtotal</span>
             <span className="font-semibold text-zinc-900">
@@ -321,11 +232,6 @@ export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProp
             </div>
           )}
 
-          <div className="flex justify-between p-3 bg-red/10 text-red font-bold text-sm">
-            <span>Grand Total</span>
-            <span>{formatMoney(invoice.grandTotal, currency)}</span>
-          </div>
-
           {invoice.advancePaid > 0 && (
             <div className="flex justify-between p-2.5 text-emerald-700">
               <span>Advance Paid</span>
@@ -335,12 +241,163 @@ export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProp
             </div>
           )}
 
+          <div className="flex justify-between p-3 bg-red/10 text-red font-bold text-sm">
+            <span>Grand Total</span>
+            <span>{formatMoney(invoice.grandTotal, currency)}</span>
+          </div>
+
           <div className="flex justify-between p-3 bg-zinc-900 text-white font-bold text-sm">
             <span>Balance Due</span>
             <span>{formatMoney(invoice.balanceDue, currency)}</span>
           </div>
         </div>
       </div>
+
+      {/* 2. PAYMENT INFORMATION: full-width section with red heading and thin red line */}
+      {showPaymentSection && (
+        <div className="mt-8 mb-6">
+          <div className="mb-3">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-red">
+              PAYMENT INFORMATION
+            </h3>
+            <div className="border-b border-red mt-1" />
+          </div>
+
+          {/* Two cards side by side (16px gap), stacked on mobile */}
+          <div className="flex flex-col md:flex-row gap-4 items-stretch">
+            {/* LEFT CARD: Bank Transfer */}
+            {hasBankDetails && (
+              <div
+                className={`${
+                  hasUpiCard ? "md:flex-1" : "w-full"
+                } p-4 bg-zinc-50 border border-zinc-200 rounded flex flex-col justify-start`}
+              >
+                <h4 className="text-xs font-bold text-zinc-900 mb-2 uppercase tracking-wide">
+                  Bank Transfer
+                </h4>
+                <div className="divide-y divide-zinc-200/80 text-[11px]">
+                  {settings.bankAccountName && (
+                    <div className="flex py-1.5 items-start">
+                      <span className="w-[35%] shrink-0 text-zinc-500 font-medium">Account Name</span>
+                      <span className="w-[65%] font-bold text-zinc-900 break-words">{settings.bankAccountName}</span>
+                    </div>
+                  )}
+                  {settings.bankName && (
+                    <div className="flex py-1.5 items-start">
+                      <span className="w-[35%] shrink-0 text-zinc-500 font-medium">Bank</span>
+                      <span className="w-[65%] font-bold text-zinc-900 break-words">{settings.bankName}</span>
+                    </div>
+                  )}
+                  {settings.bankAccountNumber && (
+                    <div className="flex py-1.5 items-start">
+                      <span className="w-[35%] shrink-0 text-zinc-500 font-medium">Account Number</span>
+                      <span className="w-[65%] font-bold font-mono text-zinc-900 break-all">{settings.bankAccountNumber}</span>
+                    </div>
+                  )}
+                  {settings.bankIfsc && (
+                    <div className="flex py-1.5 items-start">
+                      <span className="w-[35%] shrink-0 text-zinc-500 font-medium">IFSC Code</span>
+                      <span className="w-[65%] font-bold font-mono text-zinc-900 break-all">{settings.bankIfsc}</span>
+                    </div>
+                  )}
+                  {settings.bankSwift && (
+                    <div className="flex py-1.5 items-start">
+                      <span className="w-[35%] shrink-0 text-zinc-500 font-medium">SWIFT Code</span>
+                      <span className="w-[65%] font-bold font-mono text-zinc-900 break-all">{settings.bankSwift}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* RIGHT CARD: Pay via UPI */}
+            {hasUpiCard && (
+              <div
+                className={`${
+                  hasBankDetails ? "md:flex-1" : "w-full"
+                } p-4 bg-zinc-50 border border-zinc-200 rounded flex flex-col justify-start`}
+              >
+                <h4 className="text-xs font-bold text-zinc-900 mb-2 uppercase tracking-wide">
+                  Pay via UPI
+                </h4>
+
+                {/* Top: UPI ID */}
+                {hasUpiId && (
+                  <div className="mb-3">
+                    <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold block">
+                      UPI ID
+                    </span>
+                    <p className="text-sm md:text-base font-bold font-mono text-zinc-900 break-all [overflow-wrap:anywhere] mt-0.5">
+                      {settings.upiId}
+                    </p>
+                  </div>
+                )}
+
+                {/* QR Row */}
+                {hasAnyQr && (
+                  <div
+                    className={`mt-auto pt-2 flex flex-row items-start ${
+                      hasMainQr && hasBackupQr ? "justify-center gap-4" : "justify-center"
+                    }`}
+                  >
+                    {/* Main QR (~28mm = ~106px) */}
+                    {hasMainQr && (
+                      <div className="flex flex-col items-center w-[106px] shrink-0">
+                        <div className="w-[106px] h-[106px] bg-white border border-zinc-200 rounded p-[3px] flex items-center justify-center shadow-xs">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={qrData.mainQrDataUrl!}
+                            alt="Main UPI QR Code"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <p className="text-[9px] text-zinc-700 font-bold mt-[4px] leading-[1.3] text-center w-full break-words">
+                          {qrData.mainCaption}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Backup QR (~20mm = ~80px) */}
+                    {hasBackupQr && (
+                      <div className="flex flex-col items-center w-[80px] shrink-0">
+                        <div className="w-[80px] h-[80px] bg-white border border-zinc-200 rounded p-[3px] flex items-center justify-center shadow-xs">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={qrData.backupQrDataUrl!}
+                            alt="Backup QR Code"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <p className="text-[8px] text-zinc-500 font-medium mt-[4px] leading-[1.3] text-center w-full break-words">
+                          {qrData.backupCaption}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {qrError && (
+                  <div className="mt-2 text-[10px] text-red italic">
+                    QR error: {qrError}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 3. NOTES & TERMS: full-width below Payment Information */}
+      {invoice.paymentInstructions && (
+        <div className="mt-6 pt-3 border-t border-zinc-200">
+          <p className="text-[10px] font-bold text-red uppercase tracking-wider">
+            NOTES & TERMS
+          </p>
+          <p className="text-[10px] text-zinc-500 mt-1 leading-relaxed">
+            {invoice.paymentInstructions}
+          </p>
+        </div>
+      )}
 
       {/* Footer message */}
       <div className="mt-8 pt-4 border-t border-zinc-200 text-center text-[10px] text-zinc-400 italic">

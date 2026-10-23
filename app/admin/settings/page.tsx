@@ -110,20 +110,25 @@ export default function StudioSettingsPage() {
     }
   };
 
-  const handleCustomQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [uploadingBackupQr, setUploadingBackupQr] = useState(false);
+
+  const handleBackupQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setError(null);
+
     if (!file.type.match(/^image\/(png|jpeg|jpg)$/)) {
-      alert("Please upload a PNG or JPG image.");
+      setError("Please upload a PNG or JPG image.");
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      alert("Image must be smaller than 2 MB.");
+      setError("Image must be smaller than 2 MB.");
       return;
     }
 
+    setUploadingBackupQr(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -135,10 +140,17 @@ export default function StudioSettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
-      setSettings((prev) => (prev ? { ...prev, customQrUrl: data.url } : prev));
-      showToast("Custom QR code image uploaded successfully!");
+      setSettings((prev) => (prev ? {
+        ...prev,
+        backupQrUrl: data.url,
+        customQrUrl: data.url,
+        showBackupQr: true,
+      } : prev));
+      showToast("Backup QR code image uploaded successfully!");
     } catch (err: any) {
-      alert("Error uploading QR code: " + err.message);
+      setError("Failed to upload QR image: " + (err.message || "Unknown error"));
+    } finally {
+      setUploadingBackupQr(false);
     }
   };
 
@@ -432,72 +444,60 @@ export default function StudioSettingsPage() {
               </div>
 
               {(settings.showPaymentQr ?? true) && (
-                <div className="space-y-4 bg-ink/50 p-4 rounded-xl border border-white/10">
-                  {/* Mode Selector */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-secondary mb-2">
-                      QR Code Mode
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setSettings({ ...settings, qrMode: "auto" })}
-                        className={`text-left p-3.5 rounded-xl border transition-all ${
-                          (settings.qrMode || "auto") === "auto"
-                            ? "bg-red/10 border-red text-white"
-                            : "bg-ink border-white/10 text-secondary hover:text-white hover:border-white/20"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 font-medium text-sm">
-                          <span className={`w-3.5 h-3.5 rounded-full border grid place-items-center ${
-                            (settings.qrMode || "auto") === "auto" ? "border-red bg-red" : "border-white/30"
-                          }`}>
-                            {(settings.qrMode || "auto") === "auto" && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                          </span>
-                          Auto-generate UPI QR
-                        </div>
-                        <p className="text-xs text-secondary mt-1 pl-5">
-                          Built from your UPI ID, studio name, and invoice balance due (INR only).
+                <div className="space-y-4">
+                  {/* Setting 1: Main QR: Auto-generate UPI QR */}
+                  <div className="bg-ink/50 p-4 rounded-xl border border-white/10 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-sm font-semibold text-white">
+                          Main QR: Auto-generate UPI QR
+                        </label>
+                        <p className="text-xs text-secondary mt-0.5">
+                          Built automatically from your UPI ID and studio name, encoding the exact balance due.
                         </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSettings({ ...settings, qrMode: "custom" })}
-                        className={`text-left p-3.5 rounded-xl border transition-all ${
-                          settings.qrMode === "custom"
-                            ? "bg-red/10 border-red text-white"
-                            : "bg-ink border-white/10 text-secondary hover:text-white hover:border-white/20"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 font-medium text-sm">
-                          <span className={`w-3.5 h-3.5 rounded-full border grid place-items-center ${
-                            settings.qrMode === "custom" ? "border-red bg-red" : "border-white/30"
-                          }`}>
-                            {settings.qrMode === "custom" && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                          </span>
-                          Upload my own QR image
-                        </div>
-                        <p className="text-xs text-secondary mt-1 pl-5">
-                          Upload a PNG or JPG QR image from your bank or payment app (max 2 MB).
-                        </p>
-                      </button>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settings.showMainQr ?? true}
+                          onChange={(e) => setSettings({ ...settings, showMainQr: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red"></div>
+                      </label>
                     </div>
                   </div>
 
-                  {/* Upload QR image if custom mode */}
-                  {settings.qrMode === "custom" && (
-                    <div className="space-y-3 pt-2 border-t border-white/10">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-secondary">
-                        Custom QR Code Image
+                  {/* Setting 2: Backup QR: Upload my own QR image */}
+                  <div className="bg-ink/50 p-4 rounded-xl border border-white/10 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-sm font-semibold text-white">
+                          Backup QR: Upload my own QR image
+                        </label>
+                        <p className="text-xs text-secondary mt-0.5">
+                          Upload a static QR image without an embedded amount (e.g. your bank or payment app QR).
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(settings.showBackupQr)}
+                          onChange={(e) => setSettings({ ...settings, showBackupQr: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red"></div>
                       </label>
+                    </div>
+
+                    <div className="pt-3 border-t border-white/10 space-y-3">
                       <div className="flex flex-wrap items-center gap-4">
-                        {settings.customQrUrl ? (
+                        {(settings.backupQrUrl || settings.customQrUrl) ? (
                           <div className="relative group">
                             <img
-                              src={settings.customQrUrl}
-                              alt="Custom QR Preview"
-                              className="w-24 h-24 object-contain bg-white rounded-xl p-1.5 border border-white/20"
+                              src={settings.backupQrUrl || settings.customQrUrl}
+                              alt="Backup QR Preview"
+                              className="w-24 h-24 object-contain bg-white rounded-xl p-1.5 border border-white/20 shadow-sm"
                             />
                           </div>
                         ) : (
@@ -508,19 +508,20 @@ export default function StudioSettingsPage() {
 
                         <div className="space-y-2">
                           <label className="bg-white/10 hover:bg-white/20 text-white text-xs px-4 py-2.5 rounded-xl transition-colors cursor-pointer border border-white/15 font-medium inline-block">
-                            {settings.customQrUrl ? "Replace QR Image" : "Upload QR Image"}
+                            {uploadingBackupQr ? "Uploading..." : (settings.backupQrUrl || settings.customQrUrl) ? "Replace QR Image" : "Upload QR Image"}
                             <input
                               type="file"
                               accept="image/png, image/jpeg, image/jpg"
-                              onChange={handleCustomQrUpload}
+                              onChange={handleBackupQrUpload}
+                              disabled={uploadingBackupQr}
                               className="hidden"
                             />
                           </label>
-                          {settings.customQrUrl && (
+                          {(settings.backupQrUrl || settings.customQrUrl) && (
                             <div>
                               <button
                                 type="button"
-                                onClick={() => setSettings({ ...settings, customQrUrl: "" })}
+                                onClick={() => setSettings({ ...settings, backupQrUrl: "", customQrUrl: "" })}
                                 className="text-xs text-secondary hover:text-red transition-colors block"
                               >
                                 Remove QR Image
@@ -528,28 +529,28 @@ export default function StudioSettingsPage() {
                             </div>
                           )}
                           <p className="text-[11px] text-mute">
-                            PNG or JPG, maximum 2 MB. Saved in persistent storage.
+                            PNG or JPG, max 2 MB. Stored in cloud storage.
                           </p>
                         </div>
                       </div>
-                    </div>
-                  )}
 
-                  {/* QR Caption */}
-                  <div className="pt-2 border-t border-white/10">
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-secondary mb-1.5">
-                      QR Code Caption
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.qrCaption || ""}
-                      onChange={(e) => setSettings({ ...settings, qrCaption: e.target.value })}
-                      placeholder="e.g. Scan to pay"
-                      className="w-full sm:w-1/2 bg-ink border border-white/15 focus:border-red rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
-                    />
-                    <p className="text-[11px] text-mute mt-1">
-                      Short text displayed directly beneath the QR code (default: &quot;Scan to pay&quot;).
-                    </p>
+                      {/* Editable caption */}
+                      <div className="pt-2">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-secondary mb-1.5">
+                          Backup QR Caption
+                        </label>
+                        <input
+                          type="text"
+                          value={settings.backupQrCaption ?? "Backup QR"}
+                          onChange={(e) => setSettings({ ...settings, backupQrCaption: e.target.value })}
+                          placeholder="Backup QR"
+                          className="w-full sm:w-2/3 bg-ink border border-white/15 focus:border-red rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none"
+                        />
+                        <p className="text-[11px] text-mute mt-1">
+                          Default: &quot;Backup QR: enter the amount manually&quot;
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

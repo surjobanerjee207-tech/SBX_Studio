@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Invoice, StudioSettings, CURRENCY_SYMBOLS } from "@/lib/types/invoice";
 import { formatMoney } from "@/lib/invoice-calc";
-import { generateInvoiceQrDataUrl, getQrDecision } from "@/lib/upi-qr";
+import { generateInvoiceQrDataUrls, getQrDecision, DualQrDataUrls } from "@/lib/upi-qr";
 
 interface LiveInvoicePreviewProps {
   invoice: Invoice;
@@ -11,24 +11,34 @@ interface LiveInvoicePreviewProps {
 }
 
 export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProps) {
-  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [qrData, setQrData] = useState<DualQrDataUrls>({
+    mainQrDataUrl: null,
+    backupQrDataUrl: null,
+    mainCaption: "",
+    backupCaption: "",
+  });
   const [qrError, setQrError] = useState<string | null>(null);
 
   const qrDecision = getQrDecision(invoice, settings);
 
   useEffect(() => {
     let isMounted = true;
-    generateInvoiceQrDataUrl(invoice, settings)
-      .then((url) => {
+    generateInvoiceQrDataUrls(invoice, settings)
+      .then((data) => {
         if (isMounted) {
-          setQrUrl(url);
+          setQrData(data);
           setQrError(null);
         }
       })
       .catch((err) => {
         console.error("LiveInvoicePreview QR generation error:", err);
         if (isMounted) {
-          setQrUrl(null);
+          setQrData({
+            mainQrDataUrl: null,
+            backupQrDataUrl: null,
+            mainCaption: "",
+            backupCaption: "",
+          });
           setQrError(err?.message || "Failed to generate QR");
         }
       });
@@ -211,26 +221,48 @@ export function LiveInvoicePreview({ invoice, settings }: LiveInvoicePreviewProp
                 )}
               </div>
 
-              {/* Payment QR Code Box */}
-              {qrUrl ? (
-                <div className="flex flex-col items-center justify-center shrink-0 w-[96px]">
-                  <div className="w-[92px] h-[92px] bg-white border border-zinc-200 rounded p-1 flex items-center justify-center shadow-xs">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={qrUrl}
-                      alt="Payment QR Code"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <p className="text-[9px] text-zinc-500 font-bold mt-1 text-center max-w-[96px] leading-tight">
-                    {settings.qrCaption || "Scan to pay with any UPI app"}
-                  </p>
+              {/* Dual Payment QR Code Box */}
+              {(qrData.mainQrDataUrl || qrData.backupQrDataUrl) ? (
+                <div className="flex flex-row items-end gap-2.5 shrink-0">
+                  {/* Main QR (~28mm) */}
+                  {qrData.mainQrDataUrl && (
+                    <div className="flex flex-col items-center justify-center w-[104px]">
+                      <div className="w-[100px] h-[100px] bg-white border border-zinc-200 rounded p-1 flex items-center justify-center shadow-xs">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={qrData.mainQrDataUrl}
+                          alt="Main UPI QR Code"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <p className="text-[9px] text-zinc-700 font-bold mt-1 text-center max-w-[104px] leading-tight">
+                        {qrData.mainCaption}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Backup QR (~20mm) */}
+                  {qrData.backupQrDataUrl && (
+                    <div className="flex flex-col items-center justify-center w-[76px]">
+                      <div className="w-[72px] h-[72px] bg-white border border-zinc-200 rounded p-1 flex items-center justify-center shadow-xs">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={qrData.backupQrDataUrl}
+                          alt="Backup QR Code"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <p className="text-[8px] text-zinc-500 font-medium mt-1 text-center max-w-[76px] leading-tight">
+                        {qrData.backupCaption}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
 
-            {/* Small grey hint if condition fails (Requirement 5) */}
-            {!qrUrl && qrDecision.reason ? (
+            {/* Small grey hint if condition fails */}
+            {!qrData.mainQrDataUrl && !qrData.backupQrDataUrl && qrDecision.reason ? (
               <div className="mt-2.5 pt-2 border-t border-zinc-200/80 text-[10px] text-zinc-400 italic">
                 QR note: {qrDecision.reason}
               </div>

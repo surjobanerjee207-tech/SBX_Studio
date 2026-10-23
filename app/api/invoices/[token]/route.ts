@@ -38,6 +38,10 @@ export async function GET(
       qrMode: settings.qrMode,
       customQrUrl: settings.customQrUrl,
       qrCaption: settings.qrCaption,
+      showMainQr: settings.showMainQr,
+      showBackupQr: settings.showBackupQr,
+      backupQrUrl: settings.backupQrUrl,
+      backupQrCaption: settings.backupQrCaption,
     };
 
     return NextResponse.json({

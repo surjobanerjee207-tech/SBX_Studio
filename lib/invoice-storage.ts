@@ -37,6 +37,10 @@ export const DEFAULT_SETTINGS: StudioSettings = {
   qrMode: "custom",
   customQrUrl: "/payment-qr.jpg",
   qrCaption: "Scan to pay with any UPI app",
+  showMainQr: true,
+  showBackupQr: false,
+  backupQrUrl: "/payment-qr.jpg",
+  backupQrCaption: "Backup QR: enter the amount manually",
   defaultPaymentTerms:
     "50% advance to initiate edit. Remaining balance upon final video delivery. UPI / IMPS / Bank transfer accepted.",
   adminPasswordHash: "",
@@ -198,6 +202,8 @@ export function mapPrismaInvoice(rec: any): Invoice {
     publicToken: rec.publicToken,
     publicLinkEnabled: rec.publicLinkEnabled ?? true,
     showPaymentQr: rec.showPaymentQr ?? true,
+    showMainQr: rec.showMainQr ?? true,
+    showBackupQr: rec.showBackupQr ?? false,
     sentAt: rec.sentAt ? (rec.sentAt instanceof Date ? rec.sentAt.toISOString() : String(rec.sentAt)) : null,
     createdAt: rec.createdAt instanceof Date ? rec.createdAt.toISOString() : String(rec.createdAt),
     updatedAt: rec.updatedAt instanceof Date ? rec.updatedAt.toISOString() : String(rec.updatedAt),
@@ -226,17 +232,33 @@ async function healQrRowsOnce() {
   qrRowsHealed = true;
   try {
     await prisma.$executeRawUnsafe(`
+      ALTER TABLE "StudioSettings" ADD COLUMN IF NOT EXISTS "showMainQr" BOOLEAN NOT NULL DEFAULT true;
+      ALTER TABLE "StudioSettings" ADD COLUMN IF NOT EXISTS "showBackupQr" BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE "StudioSettings" ADD COLUMN IF NOT EXISTS "backupQrUrl" TEXT;
+      ALTER TABLE "StudioSettings" ADD COLUMN IF NOT EXISTS "backupQrCaption" TEXT DEFAULT 'Backup QR: enter the amount manually';
+
+      ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "showMainQr" BOOLEAN NOT NULL DEFAULT true;
+      ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "showBackupQr" BOOLEAN NOT NULL DEFAULT false;
+
       UPDATE "StudioSettings"
-      SET "showPaymentQr" = true,
-          "qrMode" = 'custom',
-          "customQrUrl" = '/payment-qr.jpg',
-          "qrCaption" = 'Scan to pay with any UPI app'
-      WHERE "id" = 'default';
-    `);
-    await prisma.$executeRawUnsafe(`
+      SET "showPaymentQr" = true
+      WHERE "id" = 'default' AND ("showPaymentQr" IS NULL OR "showPaymentQr" = false);
+
+      UPDATE "StudioSettings"
+      SET "backupQrUrl" = "customQrUrl"
+      WHERE "backupQrUrl" IS NULL AND "customQrUrl" IS NOT NULL;
+
       UPDATE "Invoice"
       SET "showPaymentQr" = true
-      WHERE "showPaymentQr" IS NULL OR "showPaymentQr" = false;
+      WHERE "showPaymentQr" IS NULL;
+
+      UPDATE "Invoice"
+      SET "showMainQr" = true
+      WHERE "showMainQr" IS NULL;
+
+      UPDATE "Invoice"
+      SET "showBackupQr" = false
+      WHERE "showBackupQr" IS NULL;
     `);
   } catch (e) {
     // Continue if tables do not exist or raw execution fails
@@ -274,6 +296,10 @@ export async function getStudioSettings(): Promise<StudioSettings> {
         qrMode: (record.qrMode as any) || "custom",
         customQrUrl: record.customQrUrl || "/payment-qr.jpg",
         qrCaption: record.qrCaption || "Scan to pay with any UPI app",
+        showMainQr: record.showMainQr ?? true,
+        showBackupQr: record.showBackupQr ?? false,
+        backupQrUrl: record.backupQrUrl || record.customQrUrl || "/payment-qr.jpg",
+        backupQrCaption: record.backupQrCaption || "Backup QR: enter the amount manually",
         adminPasswordHash: record.adminPasswordHash || undefined,
         adminPasswordSalt: record.adminPasswordSalt || undefined,
         updatedAt: record.updatedAt.toISOString(),
@@ -305,6 +331,10 @@ export async function getStudioSettings(): Promise<StudioSettings> {
         qrMode: DEFAULT_SETTINGS.qrMode,
         customQrUrl: DEFAULT_SETTINGS.customQrUrl,
         qrCaption: DEFAULT_SETTINGS.qrCaption,
+        showMainQr: DEFAULT_SETTINGS.showMainQr,
+        showBackupQr: DEFAULT_SETTINGS.showBackupQr,
+        backupQrUrl: DEFAULT_SETTINGS.backupQrUrl,
+        backupQrCaption: DEFAULT_SETTINGS.backupQrCaption,
       },
     });
 
@@ -352,6 +382,10 @@ export async function updateStudioSettings(
       qrMode: merged.qrMode,
       customQrUrl: merged.customQrUrl,
       qrCaption: merged.qrCaption,
+      showMainQr: merged.showMainQr ?? true,
+      showBackupQr: merged.showBackupQr ?? false,
+      backupQrUrl: merged.backupQrUrl || merged.customQrUrl || null,
+      backupQrCaption: merged.backupQrCaption || "Backup QR: enter the amount manually",
       adminPasswordHash: merged.adminPasswordHash,
       adminPasswordSalt: merged.adminPasswordSalt,
     },
@@ -378,6 +412,10 @@ export async function updateStudioSettings(
       qrMode: merged.qrMode,
       customQrUrl: merged.customQrUrl,
       qrCaption: merged.qrCaption,
+      showMainQr: merged.showMainQr ?? true,
+      showBackupQr: merged.showBackupQr ?? false,
+      backupQrUrl: merged.backupQrUrl || merged.customQrUrl || null,
+      backupQrCaption: merged.backupQrCaption || "Backup QR: enter the amount manually",
       adminPasswordHash: merged.adminPasswordHash,
       adminPasswordSalt: merged.adminPasswordSalt,
     },
@@ -946,6 +984,8 @@ export async function createInvoice(data: Partial<Invoice>): Promise<Invoice> {
         publicToken,
         publicLinkEnabled: data.publicLinkEnabled ?? true,
         showPaymentQr: data.showPaymentQr ?? true,
+        showMainQr: data.showMainQr ?? true,
+        showBackupQr: data.showBackupQr ?? false,
         sentAt: data.status === "Sent" ? now : null,
         items: {
           create: totals.items.map((it, idx) => ({
@@ -1051,6 +1091,8 @@ export async function updateInvoice(
         balanceDue: totals.balanceDue,
         publicLinkEnabled: data.publicLinkEnabled ?? existing.publicLinkEnabled,
         showPaymentQr: data.showPaymentQr ?? existing.showPaymentQr ?? true,
+        showMainQr: data.showMainQr ?? existing.showMainQr ?? true,
+        showBackupQr: data.showBackupQr ?? existing.showBackupQr ?? false,
         sentAt: status === "Sent" && !existing.sentAt ? new Date() : existing.sentAt ? new Date(existing.sentAt) : null,
         items: {
           create: totals.items.map((it, idx) => ({
@@ -1236,6 +1278,10 @@ export async function importAllData(data: any): Promise<void> {
           qrMode: data.settings.qrMode,
           customQrUrl: data.settings.customQrUrl,
           qrCaption: data.settings.qrCaption,
+          showMainQr: data.settings.showMainQr ?? true,
+          showBackupQr: data.settings.showBackupQr ?? false,
+          backupQrUrl: data.settings.backupQrUrl || data.settings.customQrUrl || null,
+          backupQrCaption: data.settings.backupQrCaption || "Backup QR: enter the amount manually",
         },
         create: {
           id: "default",
@@ -1260,6 +1306,10 @@ export async function importAllData(data: any): Promise<void> {
           qrMode: data.settings.qrMode || "auto",
           customQrUrl: data.settings.customQrUrl,
           qrCaption: data.settings.qrCaption,
+          showMainQr: data.settings.showMainQr ?? true,
+          showBackupQr: data.settings.showBackupQr ?? false,
+          backupQrUrl: data.settings.backupQrUrl || data.settings.customQrUrl || null,
+          backupQrCaption: data.settings.backupQrCaption || "Backup QR: enter the amount manually",
         },
       });
     }
@@ -1358,6 +1408,8 @@ export async function importAllData(data: any): Promise<void> {
             publicToken: inv.publicToken || crypto.randomBytes(16).toString("hex"),
             publicLinkEnabled: inv.publicLinkEnabled ?? true,
             showPaymentQr: inv.showPaymentQr ?? true,
+            showMainQr: inv.showMainQr ?? true,
+            showBackupQr: inv.showBackupQr ?? false,
             sentAt: inv.sentAt ? new Date(inv.sentAt) : null,
           },
           create: {
@@ -1391,6 +1443,8 @@ export async function importAllData(data: any): Promise<void> {
             publicToken: inv.publicToken || crypto.randomBytes(16).toString("hex"),
             publicLinkEnabled: inv.publicLinkEnabled ?? true,
             showPaymentQr: inv.showPaymentQr ?? true,
+            showMainQr: inv.showMainQr ?? true,
+            showBackupQr: inv.showBackupQr ?? false,
             sentAt: inv.sentAt ? new Date(inv.sentAt) : null,
           },
         });

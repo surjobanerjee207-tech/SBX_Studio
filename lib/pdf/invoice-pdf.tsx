@@ -13,7 +13,7 @@ import {
 } from "@react-pdf/renderer";
 import { Invoice, StudioSettings, CURRENCY_SYMBOLS } from "../types/invoice";
 import { formatMoney } from "../invoice-calc";
-import { generateInvoiceQrDataUrl } from "../upi-qr";
+import { generateInvoiceQrDataUrl, generateInvoiceQrDataUrls, DualQrDataUrls } from "../upi-qr";
 
 let fontsRegistered = false;
 export function registerCustomFonts() {
@@ -351,6 +351,69 @@ const styles = StyleSheet.create({
   paymentDetailsLeft: {
     flex: 1,
   },
+  qrDualContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 6,
+    flexShrink: 0,
+  },
+  qrItemMain: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 82,
+  },
+  qrBoxMain: {
+    width: 80,
+    height: 80,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 3,
+    padding: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qrImageMain: {
+    width: 76,
+    height: 76,
+    objectFit: "contain",
+  },
+  qrCaptionMain: {
+    fontSize: 6,
+    color: DARK,
+    marginTop: 2.5,
+    textAlign: "center",
+    fontWeight: "bold",
+    maxWidth: 82,
+  },
+  qrItemBackup: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 59,
+  },
+  qrBoxBackup: {
+    width: 57,
+    height: 57,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 3,
+    padding: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qrImageBackup: {
+    width: 53,
+    height: 53,
+    objectFit: "contain",
+  },
+  qrCaptionBackup: {
+    fontSize: 5.5,
+    color: MUTED,
+    marginTop: 2,
+    textAlign: "center",
+    maxWidth: 59,
+  },
   qrContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -439,11 +502,32 @@ export interface InvoicePdfProps {
   invoice: Invoice;
   settings: StudioSettings;
   qrDataUrl?: string | null;
+  mainQrDataUrl?: string | null;
+  backupQrDataUrl?: string | null;
+  mainCaption?: string;
+  backupCaption?: string;
 }
 
-export function InvoicePdfDocument({ invoice, settings, qrDataUrl }: InvoicePdfProps) {
+export function InvoicePdfDocument({
+  invoice,
+  settings,
+  qrDataUrl,
+  mainQrDataUrl,
+  backupQrDataUrl,
+  mainCaption,
+  backupCaption,
+}: InvoicePdfProps) {
   const currency = invoice.currency || "INR";
   const sym = CURRENCY_SYMBOLS[currency] || "₹";
+
+  const effectiveMainQr = mainQrDataUrl !== undefined ? mainQrDataUrl : qrDataUrl;
+  const effectiveBackupQr = backupQrDataUrl || null;
+  const balanceDue = Number(invoice.balanceDue) || 0;
+  const effectiveMainCaption =
+    mainCaption ||
+    `Scan to pay Rs. ${Number.isInteger(balanceDue) ? balanceDue.toLocaleString("en-IN") : balanceDue.toFixed(2)}`;
+  const effectiveBackupCaption =
+    backupCaption || settings.backupQrCaption || "Backup QR: enter the amount manually";
 
   const statusStyle =
     invoice.status === "Paid"
@@ -573,12 +657,26 @@ export function InvoicePdfDocument({ invoice, settings, qrDataUrl }: InvoicePdfP
                 ) : null}
               </View>
 
-              {qrDataUrl ? (
-                <View style={styles.qrContainer}>
-                  <View style={styles.qrBox}>
-                    <Image src={qrDataUrl} style={styles.qrImage} />
-                  </View>
-                  <Text style={styles.qrCaption}>{settings.qrCaption || "Scan to pay with any UPI app"}</Text>
+              {/* Dual Payment QR Codes */}
+              {(effectiveMainQr || effectiveBackupQr) ? (
+                <View style={styles.qrDualContainer}>
+                  {effectiveMainQr ? (
+                    <View style={styles.qrItemMain}>
+                      <View style={styles.qrBoxMain}>
+                        <Image src={effectiveMainQr} style={styles.qrImageMain} />
+                      </View>
+                      <Text style={styles.qrCaptionMain}>{effectiveMainCaption}</Text>
+                    </View>
+                  ) : null}
+
+                  {effectiveBackupQr ? (
+                    <View style={styles.qrItemBackup}>
+                      <View style={styles.qrBoxBackup}>
+                        <Image src={effectiveBackupQr} style={styles.qrImageBackup} />
+                      </View>
+                      <Text style={styles.qrCaptionBackup}>{effectiveBackupCaption}</Text>
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
             </View>
@@ -669,14 +767,30 @@ export async function generateInvoicePdfBuffer(
 ): Promise<Buffer> {
   registerCustomFonts();
 
-  let qrDataUrl: string | null = null;
+  let qrData: DualQrDataUrls = {
+    mainQrDataUrl: null,
+    backupQrDataUrl: null,
+    mainCaption: "",
+    backupCaption: "",
+  };
+
   try {
-    qrDataUrl = await generateInvoiceQrDataUrl(invoice, settings);
+    qrData = await generateInvoiceQrDataUrls(invoice, settings);
   } catch (err) {
-    console.error("generateInvoicePdfBuffer: Failed to generate invoice QR data URL:", err);
-    qrDataUrl = null;
+    console.error("generateInvoicePdfBuffer: Failed to generate invoice QR data URLs:", err);
   }
-  const element = <InvoicePdfDocument invoice={invoice} settings={settings} qrDataUrl={qrDataUrl} />;
+
+  const element = (
+    <InvoicePdfDocument
+      invoice={invoice}
+      settings={settings}
+      mainQrDataUrl={qrData.mainQrDataUrl}
+      backupQrDataUrl={qrData.backupQrDataUrl}
+      mainCaption={qrData.mainCaption}
+      backupCaption={qrData.backupCaption}
+      qrDataUrl={qrData.mainQrDataUrl || qrData.backupQrDataUrl}
+    />
+  );
   return await renderToBuffer(element);
 }
 
